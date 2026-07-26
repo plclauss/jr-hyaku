@@ -1,1 +1,9 @@
 /target
+
+# Ignore any IDE (VS Code only) settings files.
+**/.vscode
+
+# Ignore all Build files, except for binaries & build scripts.
+**/Build/*
+!**/Build/bin
+!**/Build/build.sh

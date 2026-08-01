@@ -855,7 +855,9 @@ bool oledDrawImage(ImageParameters imageParams) {
         (imageParams.image[srcByteIdx + 1])
       );
 
-      dispBuffer[SSD1351_ACCESS_PIXEL(dispX, dispY)] = pixel;
+      uint16_t *dest = &dispBuffer[SSD1351_ACCESS_PIXEL(dispX, dispY)];
+      ((uint8_t *)dest)[0] = (pixel >> 8) & 0xFF;
+      ((uint8_t *)dest)[1] = pixel & 0xFF;
     }
   }
 

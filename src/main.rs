@@ -87,7 +87,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let alpha_h = user_input.constraint_height as f32 / svg_height;
     let alpha = alpha_w.min(alpha_h);
 
-    // Create PNG w/ scaled SVG centered in the dimensions provided.
+    // Create PNG from scaled SVG:
+    //    - SVG will be centered horizontally and vertically w/in PNG.
+    //    - PNG's transparent background will be removed, and the SVG's path's
+    // will be in black, instead of white (for drawing on a black background).
     let canvas_w = user_input.constraint_width as u32;
     let canvas_h = user_input.constraint_height as u32;
 
@@ -110,6 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         *pixel = ts::PremultipliedColorU8::from_rgba(a, a, a, 255).unwrap();
     }
 
+    // Save PNG to a file, and exit succesfully.
     let updated_fp = user_input.svg_fp.replace(".svg", "_scaled.png");
     pixmap.save_png(&updated_fp).expect("Failed to save PNG :(");
     println!("Saved scaled SVG as PNG to {}!", updated_fp);

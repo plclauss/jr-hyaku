@@ -35,7 +35,8 @@ def convertImage(filename: str) -> bool:
     for y in range(original_image.height):
         for x in range(original_image.width):
             r, g, b = original_image.getpixel((x, y))
-            rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+            grayscale = r >> 3
+            rgb565 = ((grayscale << 11) | ((grayscale << 1) << 5) | grayscale)
             rgb565_image += struct.pack(">H", rgb565)
     
     filename_components = os.path.splitext(filename)

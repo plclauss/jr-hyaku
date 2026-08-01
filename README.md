@@ -4,6 +4,8 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
 
 ## Table of Contents
 - [Inspiration](#inspiration)
+- [Resources][#resources]
+    - [Vemaps](#vemaps)
 
 ### Inspiration
 
@@ -12,3 +14,15 @@ I found out not too long ago that some people actually try to "100%" the JR tran
 Of the posts I saw (on Reddit), people simply used map applications to display their progress. It accomplished the goal of tracking progress, but I thought it'd be cool to track progress on a display that I could hang up on my wall like a photo frame. And that's what this project aims to accomplish!
 
 Currently, it's a WIP, but I'll continue to update this README with relevant information as it arises.
+
+### Resources
+
+Enumerated below is a series of resources used to help realize this project.
+
+#### Vemaps
+
+[Vemaps](https://vemaps.com/) is an open-source provider of free vector maps.
+
+I used [Vemaps](https://vemaps.com/) to source the SVGs of Japan, but they offer maps of over 1200 entities.
+
+High quality stuff!

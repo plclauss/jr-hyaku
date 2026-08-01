@@ -32,7 +32,7 @@
  */
 #ifdef LINUX
 #define LINUX_DFLT_OLED_DEVFILE_FP ("/dev/spidev0.0")  // SPI0, CS0
-#define LINUX_DFLT_OLED_SPEED_HZ (8000000)             // 800MHz
+#define LINUX_DFLT_OLED_SPEED_HZ (8000000)             // 8MHz
 static LinuxSPIConfig OLEDSPIConfig = {
   .fd = LINUX_INVALID_FILE_DESCRIPTOR_VAL,
   .devfile = LINUX_DFLT_OLED_DEVFILE_FP,
@@ -815,42 +815,49 @@ bool oledDrawString(TextParameters textParams) {
 
 /**
  * @brief Draws an image to the GDDRAM buffer.
- *
- * It is expected that the image is a square _EXPEC_IMG_DIMS_PX image. The image
- * is always centered horizontally, and is drawn ..._DISP_PADDING_PX from top.
- *
- * It is hard-coded this way, since this is only ever really used for drawing
- * the song art when the music is playing. Since the design is the same, we
- * impose these restrictions.
- *
- * @param[in] image The RGB565 image data to draw to the screen.
- *
- * Any image will work, so long as it's ((...IMG_DIMS_PX^2) *2), but it may look
- * funky, depending on the encoding/if there's compression.
- *
- * @param imageSize The size of the image, in bytes.
- *
- * This should be equiv. to ((...IMG_DIMS_PX^2) * 2).
- *
+ * 
+ * @param imageParams A struct containing information about how the image should
+ * be drawn to the OLED:
+ *    -  image - A pointer to the heap memory containing the RGB565 image data;
+ *    -  width - The width of `image`, in bytes;
+ *    - height - The height of `image`, in bytes;
+ *    -      x - The starting x-coordinate of the image to draw; and,
+ *    -      y - The starting y-coordinate of the image to draw.
+ * 
  * @return True, if the image was drawn successfully; false, otherwise.
+ * 
+ * @note If the image's size exceeds the dimensions of the OLED, it will still
+ * be drawn, but will be clipped.
  */
-bool oledDrawImage(const uint8_t *image, const int32_t imageSize) {
+bool oledDrawImage(ImageParameters imageParams) {
   // Input Validation
-  static const int32_t _EXPEC_IMG_DIMS_PX = 81;
-  static const int32_t _EXPEC_IMG_SIZE =
-    (_EXPEC_IMG_DIMS_PX * _EXPEC_IMG_DIMS_PX * 2);
-  if (!image || imageSize != _EXPEC_IMG_SIZE) return false;
+  if (!imageParams.image) { return false; }
+  else if (
+    imageParams.x >= SSD1351_DISP_WIDTH ||
+    imageParams.y >= SSD1351_DISP_HEIGHT
+  ) { return false; }
 
-  // Draw the image to the buffer, and to the OLED.
-  static const uint8_t _IMG_XOFFSET_PX =
-    ((SSD1351_DISP_WIDTH - _EXPEC_IMG_DIMS_PX) / 2);
-  static const uint8_t _IMG_YOFFSET_PX = SSD1351_DISP_PADDING_PX;
-  for (int32_t y = 0; y < _EXPEC_IMG_DIMS_PX; y += 1) {
-    for (int32_t x = 0; x < _EXPEC_IMG_DIMS_PX; x += 1) {
-      const int32_t imgIdx = (2 * (y * _EXPEC_IMG_DIMS_PX + x));
-      const uint16_t imgPx = (image[imgIdx] << 8) | (image[imgIdx + 1]);
-      dispBuffer[SSD1351_ACCESS_PIXEL(
-        x + _IMG_XOFFSET_PX, y + _IMG_YOFFSET_PX)] = imgPx;
+  // Draw the image to the buffer.
+  const uint32_t x2 = MIN_VALUE(
+    imageParams.x + imageParams.width, SSD1351_DISP_WIDTH
+  );
+  const uint32_t y2 = MIN_VALUE(
+    imageParams.y + imageParams.height, SSD1351_DISP_HEIGHT
+  );
+
+  for (uint32_t dispY = imageParams.y; dispY < y2; dispY++) {
+    const uint32_t srcRow = dispY - imageParams.y;
+    for (uint32_t dispX = imageParams.x; dispX < x2; dispX++) {
+      const uint32_t srcCol = dispX - imageParams.x;
+      const uint32_t srcByteIdx = (srcRow * imageParams.width + srcCol) * 2;
+      const uint16_t pixel = (
+        ((uint16_t)imageParams.image[srcByteIdx] << 8) |
+        (imageParams.image[srcByteIdx + 1])
+      );
+
+      uint16_t *dest = &dispBuffer[SSD1351_ACCESS_PIXEL(dispX, dispY)];
+      ((uint8_t *)dest)[0] = (pixel >> 8) & 0xFF;
+      ((uint8_t *)dest)[1] = pixel & 0xFF;
     }
   }
 

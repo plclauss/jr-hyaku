@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 use std::error::Error;
+use resvg::tiny_skia as ts;
 
 struct UserInput {
     svg_fp: String,
@@ -62,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         |p| p.parent().map(|p| p.to_path_buf())
     );
 
-    let svg_data = fs::read(user_input.svg_fp).unwrap();
+    let svg_data = fs::read(&user_input.svg_fp).unwrap();
     let tree = usvg::Tree::from_data(&svg_data, &opt).unwrap();
 
     // Calculate bounding boxes for each <g> in SVG.
@@ -86,12 +87,37 @@ fn main() -> Result<(), Box<dyn Error>> {
     let alpha_h = user_input.constraint_height as f32 / svg_height;
     let alpha = alpha_w.min(alpha_h);
 
-    println!(
-        "Done!\nSVG shrinks from {}x{} to {}x{} w/ an alpha={}.\r\n",
-        svg_width, svg_height,
-        svg_width * alpha, svg_height * alpha,
-        alpha
-    );
+    // Create PNG from scaled SVG:
+    //    - SVG will be centered horizontally and vertically w/in PNG.
+    //    - PNG's transparent background will be removed, and the SVG's path's
+    // will be in black, instead of white (for drawing on a black background).
+    let canvas_w = user_input.constraint_width as u32;
+    let canvas_h = user_input.constraint_height as u32;
+
+    let mut pixmap = 
+        ts::Pixmap::new(canvas_w, canvas_h)
+        .ok_or("Failed to create Pixmap :(")?;
+
+    let content_w = svg_width * alpha;
+    let content_h = svg_height * alpha;
+    let offset_x = (canvas_w as f32 - content_w) / 2.0;
+    let offset_y = (canvas_h as f32 - content_h) / 2.0;
+    let transform = 
+        ts::Transform::from_translate(-min_x, -min_y)
+        .post_scale(alpha, alpha)
+        .post_translate(offset_x, offset_y);
+
+    resvg::render(&tree, transform, &mut pixmap.as_mut());
+    for pixel in pixmap.pixels_mut() {
+        let a = pixel.alpha();
+        *pixel = ts::PremultipliedColorU8::from_rgba(a, a, a, 255).unwrap();
+    }
+
+    // Save PNG to a file, and exit succesfully.
+    let updated_fp = user_input.svg_fp.replace(".svg", "_scaled.png");
+    pixmap.save_png(&updated_fp).expect("Failed to save PNG :(");
+    println!("Saved scaled SVG as PNG to {}!", updated_fp);
+
     Ok(())
 }
 

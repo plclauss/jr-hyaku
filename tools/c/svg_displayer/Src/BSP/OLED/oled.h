@@ -51,7 +51,12 @@ typedef struct TextParameters {
 } TextParameters;
 bool oledDrawString(const TextParameters textParams);
 
-bool oledDrawImage(const uint8_t *image, const int32_t imageSize);
+typedef struct ImageParameters {
+  uint8_t *image;
+  uint32_t width, height;
+  uint32_t x, y;
+} ImageParameters;
+bool oledDrawImage(ImageParameters imageParams);
 
 bool oledUpdateDisplay(void);
 

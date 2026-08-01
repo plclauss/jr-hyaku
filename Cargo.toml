@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 usvg = "0.47.0"
+resvg = "0.47.0"

@@ -7,3 +7,6 @@
 **/Build/*
 !**/Build/bin
 !**/Build/build.sh
+
+# Ignore all venv/ files (Python)
+**/venv

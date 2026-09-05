@@ -7,13 +7,16 @@ struct UserInput {
     svg_fp: String,
     constraint_width: i32,
     constraint_height: i32,
+    crop: Option<(f32, f32, f32, f32)>
 }
 
 fn collect_args() -> Result<UserInput, String> {
     // Grab command-line arguments.
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        return Err(format!("Usage: cargo run -- <in-svg> <dimensions>"));
+    if args.len() != 3 && args.len() != 4 {
+        return Err(format!(
+            "Usage: cargo run -- <svg> <dimensions> [min_x,min_y,max_x,max_y]"
+        ));
     }
 
     // Ensure <in-svg> is an actual SVG file.
@@ -40,11 +43,29 @@ fn collect_args() -> Result<UserInput, String> {
     if width <= 0 { return Err(format!("Width must be positive.")); }
     if height <= 0 { return Err(format!("Height must be positive.")); }
 
+    // Extract bbox if specified.
+    let bbox = if args.len() == 4 {
+        let parts: Vec<&str> = args[3].split(',').collect();
+        if parts.len() != 4 {
+            return Err(format!("<crop> must be min_x,min_y,max_x,max_y"));
+        }
+
+        let vals: Result<Vec<f32>, _> = parts.iter().map(
+            |p| p.trim().parse::<f32>()
+        ).collect();
+        let vals = vals.map_err(|e| format!("Invalid crop: {}", e))?;
+
+        Some((vals[0], vals[1], vals[2], vals[3]))
+    } else {
+        None
+    };
+
     // Args validated; return them.
     Ok(UserInput {
         svg_fp: svg_fp.to_string(),
         constraint_width: width,
         constraint_height: height,
+        crop: bbox
     })
 }
 
@@ -66,19 +87,25 @@ fn main() -> Result<(), Box<dyn Error>> {
     let svg_data = fs::read(&user_input.svg_fp).unwrap();
     let tree = usvg::Tree::from_data(&svg_data, &opt).unwrap();
 
-    // Calculate bounding boxes for each <g> in SVG.
-    let mut bboxes = Vec::new();
-    collect_bboxes(tree.root(), &mut bboxes);
+    // If crop is specified, use that.
+    // Otherwise, determine scaling factor to fit w/in smaller of dimensions.
+    let (min_x, min_y, max_x, max_y) = if let Some(crop) = user_input.crop {
+        crop
+    } else {
+        let mut bboxes = Vec::new();
+        collect_bboxes(tree.root(), &mut bboxes);
 
-    // Determine scaling factor to fit w/in smaller of dimensions.
-    let mut min_x: f32 = f32::MAX; let mut max_x: f32 = 0.0;
-    let mut min_y: f32 = f32::MAX; let mut max_y: f32 = 0.0;
-    for bbox in &bboxes {
-        min_x = min_x.min(bbox.left());
-        min_y = min_y.min(bbox.top());
-        max_x = max_x.max(bbox.right());
-        max_y = max_y.max(bbox.bottom());
-    }
+        let mut min_x: f32 = f32::MAX; let mut max_x: f32 = 0.0;
+        let mut min_y: f32 = f32::MAX; let mut max_y: f32 = 0.0;
+        for bbox in &bboxes {
+            min_x = min_x.min(bbox.left());
+            min_y = min_y.min(bbox.top());
+            max_x = max_x.max(bbox.right());
+            max_y = max_y.max(bbox.bottom());
+        }
+
+        (min_x, min_y, max_x, max_y)
+    };
 
     let svg_width = max_x - min_x;
     let svg_height = max_y - min_y;

@@ -4,7 +4,7 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
 
 ## Table of Contents
 - [Inspiration](#inspiration)
-- [Resources][#resources]
+- [Resources](#resources)
     - [Vemaps](#vemaps)
 
 ### Inspiration

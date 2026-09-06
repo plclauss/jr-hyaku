@@ -7,15 +7,16 @@ struct UserInput {
     svg_fp: String,
     constraint_width: i32,
     constraint_height: i32,
-    crop: Option<(f32, f32, f32, f32)>
+    crop: Option<(f32, f32, f32, f32)>,
+    out_fp: Option<String>
 }
 
 fn collect_args() -> Result<UserInput, String> {
     // Grab command-line arguments.
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 && args.len() != 4 {
+    if args.len() < 3 || args.len() > 5 {
         return Err(format!(
-            "Usage: cargo run -- <svg> <dimensions> [min_x,min_y,max_x,max_y]"
+            "Usage: cargo run -- <svg> <dimensions> [<min_x,min_y,max_x,max_y>] [<out_fp>]"
         ));
     }
 
@@ -44,7 +45,7 @@ fn collect_args() -> Result<UserInput, String> {
     if height <= 0 { return Err(format!("Height must be positive.")); }
 
     // Extract bbox if specified.
-    let bbox = if args.len() == 4 {
+    let bbox = if args.len() >= 4 {
         let parts: Vec<&str> = args[3].split(',').collect();
         if parts.len() != 4 {
             return Err(format!("<crop> must be min_x,min_y,max_x,max_y"));
@@ -60,12 +61,20 @@ fn collect_args() -> Result<UserInput, String> {
         None
     };
 
+    // Extract output filepath if specified.
+    let out_fp = if args.len() == 5 {
+        Some(args[4].clone())
+    } else {
+        None
+    };
+
     // Args validated; return them.
     Ok(UserInput {
         svg_fp: svg_fp.to_string(),
         constraint_width: width,
         constraint_height: height,
-        crop: bbox
+        crop: bbox,
+        out_fp
     })
 }
 
@@ -141,7 +150,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Save PNG to a file, and exit succesfully.
-    let updated_fp = user_input.svg_fp.replace(".svg", "_scaled.png");
+    let updated_fp = match &user_input.out_fp {
+        Some(fp) => fp.clone(),
+        None => user_input.svg_fp.replace(".svg", "_scaled.png"),
+    };
     pixmap.save_png(&updated_fp).expect("Failed to save PNG :(");
     println!("Saved scaled SVG as PNG to {}!", updated_fp);
 

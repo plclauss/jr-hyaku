@@ -1,0 +1,449 @@
+openapi: 3.1.0
+info:
+  title: FastAPI
+  version: 0.1.0
+paths:
+  /lines:
+    get:
+      summary: Get Lines
+      operationId: get_lines_lines_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Line'
+                type: array
+                title: Response Get Lines Lines Get
+    post:
+      summary: Add Line
+      operationId: add_line_lines_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LineCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Line'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /lines/{line_cd}:
+    get:
+      summary: Get Line
+      operationId: get_line_lines__line_cd__get
+      parameters:
+      - name: line_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Line Cd
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Line'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      summary: Update Line
+      operationId: update_line_lines__line_cd__patch
+      parameters:
+      - name: line_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Line Cd
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LineUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Line'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      summary: Delete Line
+      operationId: delete_line_lines__line_cd__delete
+      parameters:
+      - name: line_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Line Cd
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /lines/{line_cd}/stations:
+    get:
+      summary: Get Line Stations
+      operationId: get_line_stations_lines__line_cd__stations_get
+      parameters:
+      - name: line_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Line Cd
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+                title: Response Get Line Stations Lines  Line Cd  Stations Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      summary: Add Station
+      operationId: add_station_lines__line_cd__stations_post
+      parameters:
+      - name: line_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Line Cd
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StationCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /stations:
+    get:
+      summary: Get Stations
+      operationId: get_stations_stations_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Station'
+                type: array
+                title: Response Get Stations Stations Get
+  /stations/{station_cd}:
+    get:
+      summary: Get Station
+      operationId: get_station_stations__station_cd__get
+      parameters:
+      - name: station_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Station Cd
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      summary: Update Station
+      operationId: update_station_stations__station_cd__patch
+      parameters:
+      - name: station_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Station Cd
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StationUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      summary: Delete Station
+      operationId: delete_station_stations__station_cd__delete
+      parameters:
+      - name: station_cd
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Station Cd
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Line:
+      properties:
+        id:
+          type: integer
+          title: Id
+        line_cd:
+          type: integer
+          title: Line Cd
+        line_name:
+          type: string
+          title: Line Name
+        route_color:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Route Color
+        line_type:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Line Type
+        completion_pct:
+          type: number
+          title: Completion Pct
+      type: object
+      required:
+      - id
+      - line_cd
+      - line_name
+      - route_color
+      - line_type
+      - completion_pct
+      title: Line
+    LineCreate:
+      properties:
+        line_cd:
+          type: integer
+          title: Line Cd
+        line_name:
+          type: string
+          title: Line Name
+        route_color:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Route Color
+        line_type:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Line Type
+      type: object
+      required:
+      - line_cd
+      - line_name
+      title: LineCreate
+    LineUpdate:
+      properties:
+        line_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Line Name
+        route_color:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Route Color
+        line_type:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Line Type
+      type: object
+      title: LineUpdate
+    Station:
+      properties:
+        id:
+          type: integer
+          title: Id
+        station_cd:
+          type: integer
+          title: Station Cd
+        station_name:
+          type: string
+          title: Station Name
+        lon:
+          type: number
+          title: Lon
+        lat:
+          type: number
+          title: Lat
+        visited_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Visited At
+        line_cd:
+          type: integer
+          title: Line Cd
+      type: object
+      required:
+      - id
+      - station_cd
+      - station_name
+      - lon
+      - lat
+      - visited_at
+      - line_cd
+      title: Station
+    StationCreate:
+      properties:
+        station_cd:
+          type: integer
+          title: Station Cd
+        station_name:
+          type: string
+          title: Station Name
+        lon:
+          type: number
+          title: Lon
+        lat:
+          type: number
+          title: Lat
+      type: object
+      required:
+      - station_cd
+      - station_name
+      - lon
+      - lat
+      title: StationCreate
+    StationUpdate:
+      properties:
+        station_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Station Name
+        lon:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Lon
+        lat:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Lat
+        visited_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Visited At
+      type: object
+      title: StationUpdate
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

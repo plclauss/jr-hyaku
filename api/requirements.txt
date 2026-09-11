@@ -1,3 +1,4 @@
 fastapi[standard]
 pydantic
+uvicorn[standard]
 psycopg[binary]

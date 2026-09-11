@@ -1,0 +1,20 @@
+[Unit]
+Description=JR Hyaku HTTP API
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=zzzero
+WorkingDirectory=/home/zzzero/jr-hyaku-api
+ExecStart=/home/zzzero/jr-hyaku-api/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+
+Restart=always
+RestartSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jr-hyaku-api
+
+[Install]
+WantedBy=multi-user.target

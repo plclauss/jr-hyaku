@@ -8,5 +8,6 @@
 !**/Build/bin
 !**/Build/build.sh
 
-# Ignore all venv/ files (Python)
-**/venv
+# Ignore all venv and __pycache__ files.
+**/*venv*
+**/__pycache__

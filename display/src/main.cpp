@@ -4,9 +4,15 @@
 #include <thread>
 
 #include "app/app.hpp"
-#include "app/ipc/ipc.h"
-#include "app/json/json.hpp"
+#include "app/ipc/server.hpp"
+#include "bsp/oled/oled.h"
 #include "utils/logger/logger.h"
+
+typedef enum {
+  STAT_CODE_SUCCESS = 0,
+  STAT_CODE_INIT_ERR = 1,
+  STAT_CODE_UNEXPECTED = 2,
+} StatusCodes;
 
 std::atomic<bool> running_{true};
 extern "C" void sigtermHandler(int32_t) {
@@ -25,15 +31,22 @@ int32_t main(void) {
   // Custom SIGTERM handler -- Performs graceful shutdown.
   std::signal(SIGTERM, sigtermHandler);
 
-  // UNIX domain socket for IPC b/w HTTP API.
-  const int32_t socketFd = ipcInitUNIXDomainSocket();
-  if (socketFd == LINUX_INVAL_SOCKET_FD) {
-    LOG_ERR("Failed to open UNIX socket");
-    return 1;
+  // OLED
+  if (!oledInit()) {
+    LOG_ERR("Failed to initialize OLED");
+    return STAT_CODE_INIT_ERR;
   }
 
+  // UNIX domain socket for IPC b/w HTTP API.
+  const int32_t socketFd = ipcInitUNIXDomainSocket();
+  if (socketFd == LINUX_INVAL_SOCKET_FD) return STAT_CODE_INIT_ERR;
+
+  // High-level handles.
+  Server server(socketFd);
+  App app(server);
+
   /* Start application thread, and wait for event to shutdown. */
-  App app;
+  std::thread serverThread([&]() { server.run(); });
   std::thread appThread([&]() { app.run(); });
 
   while (running_) {
@@ -44,8 +57,15 @@ int32_t main(void) {
   app.stop();
   appThread.join();
 
+  server.stop();
+  serverThread.join();
+
   ipcDeinitUNIXDomainSocket(socketFd);
 
+  oledClearScreen();
+  oledUpdateDisplay();
+  oledDeinit();
+
   LOG_INF("Shutdown complete; closing application.");
-  return 0;
+  return STAT_CODE_SUCCESS;
 }

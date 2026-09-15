@@ -9,8 +9,12 @@ extern "C" {
 
 #define LINUX_INVAL_SOCKET_FD (-1)
 
+/* Initializer / De-initializer */
 int32_t ipcInitUNIXDomainSocket(void);
 void ipcDeinitUNIXDomainSocket(const int32_t fd);
+
+/* Reading / Parsing Functions */
+char *ipcReadFrame(const int32_t fd);
 
 #ifdef __cplusplus
 }

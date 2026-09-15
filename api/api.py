@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
-import db
+import db, display
 
 app = FastAPI()
 
@@ -62,6 +62,14 @@ async def get_line(line_cd: int):
     line = db.fetch_line(line_cd)
     if line is None:
         raise HTTPException(status_code=404, detail=f"line_cd={line_cd} not found")
+    
+    send_display_command({
+        "cmd": "show_line",
+        "line_name": line["line_name"],
+        "completion_pct": line["completion_pct"]
+        # TODO: Add SVG -> PNG pixel transformation for stations.
+    })
+
     return line
 
 

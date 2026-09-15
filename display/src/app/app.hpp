@@ -4,12 +4,12 @@
 #include <atomic>
 #include <cstdint>
 
-#include "app/json/json.hpp"
+#include "app/ipc/server.hpp"
 
 class App {
  public:
   // Initializers / De-initializers
-  explicit App(){};
+  explicit App(Server& server) : server_(&server){};
   ~App() = default;
 
   App(const App& other) = delete;             // Copy Constructor
@@ -22,7 +22,13 @@ class App {
   void stop();
 
  private:
+  /* Thread-related data members. */
   std::atomic<bool> running_{false};
+
+  /* Functional data members / functions. */
+  Server* server_{nullptr};
+  bool jsonCommandIsValid(const nlohmann::json& json);
+  bool jsonHandleCommand(const nlohmann::json& json);
 };
 
 #endif  // __APP_HPP__

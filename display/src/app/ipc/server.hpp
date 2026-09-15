@@ -26,6 +26,20 @@ class Server {
   void run();
   void stop();
 
+  // App-related Functions
+  std::optional<nlohmann::json> pop(
+      std::chrono::milliseconds timeout = std::chrono::milliseconds(100)) {
+    std::unique_lock<std::mutex> lock(this->mutex_);
+    if (!this->cv_.wait_for(lock, timeout,
+                            [this] { return !this->queue_.empty(); })) {
+      return std::nullopt; /* Timed out; queue empty. */
+    }
+
+    auto cmd = std::move(this->queue_.front());
+    this->queue_.pop();
+    return cmd;
+  }
+
  private:
   /* Thread-related data members. */
   std::atomic<bool> running_{false};
@@ -44,18 +58,6 @@ class Server {
     }
     this->cv_.notify_one();
   };
-
-  std::optional<nlohmann::json> pop(std::chrono::milliseconds timeout) {
-    std::unique_lock<std::mutex> lock(this->mutex_);
-    if (!this->cv_.wait_for(lock, timeout,
-                            [this] { return !this->queue_.empty(); })) {
-      return std::nullopt; /* Timed out; queue empty. */
-    }
-
-    auto cmd = std::move(this->queue_.front());
-    this->queue_.pop();
-    return cmd;
-  }
 };
 
 #endif  // __SERVER_HPP__

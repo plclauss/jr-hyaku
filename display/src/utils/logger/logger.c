@@ -45,7 +45,7 @@ void loggerLogV(const LogLevel level, const char* format, va_list args) {
 void loggerLog(const LogLevel level, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  logMessageV(level, format, args);
+  loggerLogV(level, format, args);
   va_end(args);
 }
 

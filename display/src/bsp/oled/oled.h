@@ -15,24 +15,50 @@ extern "C" {
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "bsp/oled/Fonts/Inconsolata_Expanded-Regular5pt7b.h"
+#include "bsp/oled/Fonts/Inconsolata_ExtraExpanded-Black6pt7b.h"
+#include "bsp/oled/Fonts/Inconsolata_SemiCondensed-Bold4pt7b.h"
+
+/**
+ * @brief OLED metadata.
+ */
 #define SSD1351_DISP_WIDTH (128)
 #define SSD1351_DISP_HEIGHT (128)
 
+/**
+ * @brief Basic draw-able colors.
+ * 
+ * Any 16-bit value will work, but these are often useful.
+ */
 #define WHITE (0xFFFF)
 #define BLACK (0x0000)
 
-// Initializers / Deinitializers
+/**
+ * @brief OLED init and de-init functions.
+ */
 bool oledInit(void);
 bool oledDeinit(void);
 
-// Drawing Functions
+/**
+ * @brief OLED drawing functions.
+ */
 bool oledClearScreen(void);
-
 bool oledDrawPixel(uint8_t x, uint8_t y, const uint16_t color);
-bool oledDrawHLine(uint8_t x, uint8_t y, uint8_t w, const uint16_t color);
-bool oledDrawVLine(uint8_t x, uint8_t y, uint8_t h, const uint16_t color);
-bool oledDrawSquare(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2,
-                    const uint16_t color, const bool fill);
+
+typedef struct Coordinate {
+  int16_t x, y;
+} Coordinate;
+extern const Coordinate INVALID_COORDINATE;
+
+typedef struct TextMetrics {
+  int16_t ascent, descent;
+} TextMetrics_t;
+Coordinate oledCalcTextBounds(
+  const char *str,
+  const uint8_t len,
+  const GFXfont *font,
+  TextMetrics_t *metrics
+);
 
 typedef enum {
   SEMI_CONDENSED_4PTBOLD,
@@ -43,9 +69,9 @@ typedef struct TextParameters {
   FontOptions font;
   uint16_t color;
 
-  char *text;
-  uint8_t x;
-  uint8_t y1, y2;
+  const char *text;
+  int16_t x;
+  int16_t y1, y2;
   bool center;
 } TextParameters;
 bool oledDrawString(const TextParameters textParams);
@@ -58,6 +84,11 @@ typedef struct ImageParameters {
 bool oledDrawImage(ImageParameters imageParams);
 
 bool oledUpdateDisplay(void);
+
+/**
+ * @brief Misc. helpers
+ */
+bool oledCoordinateIsInvalid(const Coordinate coord);
 
 #ifdef __cplusplus
 }

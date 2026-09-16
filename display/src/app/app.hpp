@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "app/ipc/server.hpp"
+#include "bsp/oled/oled.h"
 
 class App {
  public:
@@ -27,7 +28,11 @@ class App {
 
   /* Functional data members / functions. */
   Server* server_{nullptr};
+
   bool jsonCommandIsValid(const nlohmann::json& json);
+
+  ImageParameters imageParams_;
+  bool jsonReadImageData(const std::string& line);
   bool jsonHandleCommand(const nlohmann::json& json);
 };
 

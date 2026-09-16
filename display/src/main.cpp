@@ -23,8 +23,11 @@ extern "C" void sigtermHandler(int32_t) {
 int32_t main(void) {
   /* Initial log(s). */
   LOG_INF("Application started!");
+
 #ifdef DEBUG
   LOG_DBG("DEBUG mode activated.");
+#else
+  LOG_DBG("DEBUG mode deactivated.");
 #endif
 
   /* Initialize all resources. */

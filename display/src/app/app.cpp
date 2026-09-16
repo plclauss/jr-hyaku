@@ -1,9 +1,12 @@
 #include "app/app.hpp"
 
+#include <chrono>
 #include <fstream>
+#include <filesystem>
+#include <sstream>
 #include <stdexcept>
+#include <thread>
 
-#include "bsp/oled/oled.h"
 #include "utils/logger/logger.h"
 
 /**
@@ -17,7 +20,20 @@ void App::run() {
     if (!opt.has_value()) continue;
 
     /* Perform display action in command, if valid. */
-    this->jsonHandleCommand(opt.value());
+    const nlohmann::json json = opt.value();
+    if (!this->jsonCommandIsValid(json)) {
+#ifdef DEBUG
+    LOG_DBG("%s: JSON command invalid; ignoring", __func__);
+#endif
+      continue; // To next loop iteration.
+    }
+
+    if (this->jsonHandleCommand(json)) {
+      /* Hold on this screen for a few seconds, then revert. */
+      std::this_thread::sleep_for(std::chrono::seconds(10));
+
+      /* TODO: Revert to IDLE screen. */
+    }
   }  // End while-loop.
 
   /* No resources to clean; just exit. */
@@ -55,64 +71,122 @@ bool App::jsonCommandIsValid(const nlohmann::json& json) {
   return false;
 }
 
-/* TODO */
-bool App::jsonHandleCommand(const nlohmann::json& json) {
-  /* Input Validation */
-  if (!this->jsonCommandIsValid(json)) {
-#ifdef DEBUG
-    LOG_DBG("%s: JSON command invalid; ignoring", __func__);
-#endif
+/**
+ * @brief Reads an image's .bin file into memory for displaying.
+ * @param line The name of the line to display; all files follow the same
+ * standard, using the name as a unique identifier.
+ * @return True, if the file was read into memory; false, otherwise.
+ */
+bool App::jsonReadImageData(const std::string& line) {
+  /* Helper vars. */
+  static const int32_t __WIDTH = SSD1351_DISP_WIDTH;
+  static const int32_t __HEIGHT = SSD1351_DISP_HEIGHT;
+
+  /* Ensure ImageParamters' base constant values are ok. */
+  this->imageParams_.width = __WIDTH;
+  this->imageParams_.height = __HEIGHT;
+  this->imageParams_.x = 0;
+  this->imageParams_.y = 0;
+
+  /* Extract image data from file. */
+  const size_t imgSz = static_cast<size_t>(
+    __WIDTH * __HEIGHT * sizeof(uint16_t)
+  );
+  auto buffer = std::make_unique<uint8_t[]>(imgSz);
+
+  const std::string filepath = "~/Desktop/jr-hyaku/assets/" + line + ".bin";
+  std::ifstream bin(filepath, std::ios::binary);
+  if (!bin.is_open()) {
+    LOG_WRN("%s: Failed to open line=%s (path=%s)", __func__, line, filepath);
     return false;
   }
 
-  /* Send display information to OLED. */
+  std::error_code ec;
+  const auto fileSz = std::filesystem::file_size(filepath, ec);
+  if (ec || imgSz != fileSz) {
+    LOG_WRN("%s: Cannot read image; invalid file size=%zu", __func__, fileSz);
+    return false;
+  }
+
+  if (!bin.read(reinterpret_cast<char*>(buffer.get()), imgSz)) {
+    LOG_WRN("%s: Failed to read image data from file", __func__);
+    return false;
+  }
+
+  delete[] this->imageParams_.image;
+  this->imageParams_.image = buffer.release();
+  return true;
+}
+
+/**
+ * @brief Handles a JSON command from the HTTP API.
+ * @details Currently, there's only one command from the API -- "show_line".
+ * It's used to display completion percentage information about the given line.
+ * Hence, this function does precisely that one and only thing.
+ * @param[in] json The JSON command from the API.
+ * @return True, if the data was drawn to the OLED; false, otherwise.
+ */
+bool App::jsonHandleCommand(const nlohmann::json& json) {
+  /* Extract relevant display-able information. */
   const std::string line = json.at("line_name").get<std::string>();
   const double completionPct = json.at("completion_pct").get<double>();
 
-  /* TODO: Display relevant information. */
+  /* Display relevant information. */
   {
-    /* Extract image data from file. */
-    ImageParameters imgParams = {
-        .image = NULL,
-        .width = SSD1351_DISP_WIDTH,
-        .height = SSD1351_DISP_HEIGHT,
-        .x = 0,
-        .y = 0,
+    // Read image data from assets/.
+    if (!this->jsonReadImageData(line)) return false;
+
+    // Clear previous GDDRAM.
+    if (!oledClearScreen()) {
+      LOG_WRN("%s: Failed to clear previous GDDRAM buffer", __func__);
+      return false;
+    }
+
+    // Draw image to GDDRAM.
+    if (!oledDrawImage(this->imageParams_)) {
+      LOG_WRN("%s: Failed to draw PNG to GDDRAM", __func__);
+      return false;
+    }
+
+    // Draw caption to GDDRAM.
+    std::stringstream pctAsString;
+    pctAsString << std::fixed << std::setprecision(2) << completionPct;
+    const std::string caption = line + "\n" + pctAsString.str();
+    const char *captionCStr = caption.c_str();
+
+    static const auto font_ = &Inconsolata_SemiCondensed_Bold4pt7b;
+    Coordinate captionBbox =
+      oledCalcTextBounds(captionCStr, strlen(captionCStr), font_, NULL);
+    if (oledCoordinateIsInvalid(captionBbox)) {
+      LOG_WRN(
+        "%s: Caption bbox invalid ({%zu, %zu})",
+        __func__,
+        captionBbox.x,
+        captionBbox.y
+      );
+      return false;
+    }
+
+    const TextParameters tp = {
+      .font = SEMI_CONDENSED_4PTBOLD,
+      .color = WHITE,
+      .text = captionCStr,
+      .x = 0,
+      .y1 = --captionBbox.y,
+      .y2 = SSD1351_DISP_HEIGHT,
+      .center = true,
     };
-
-    const size_t imgSz =
-        ((size_t)(imgParams.width * imgParams.height * sizeof(uint16_t)));
-    imgParams.image = (uint8_t*)malloc(imgSz);
-    if (!imgParams.image) {
-      LOG_WRN("");   /* TODO */
-      return false;  // OLED still displaying IDLE state.
+    if (!oledDrawString(tp)) {
+      LOG_WRN("%s: Failed to draw caption to GDDRAM", __func__);
+      return false;
     }
 
-    const std::string filepath = "~/Desktop/jr-hyaku/assets/" + line + ".bin";
-    std::ifstream bin(filepath, std::ios::binary);
-    if (!bin.is_open()) {
-      LOG_WRN(""); /* TODO */
-      free(imgParams.image);
-      return false;  // OLED still displaying IDLE state.
+    // Update OLED w/ content of GDDRAM.
+    if (!oledUpdateDisplay()) {
+      LOG_WRN("%s: Failed to update display w/ line data", __func__);
+      return false;
     }
-
-    bin.seekg(0, std::ios::end);
-    const std::streamsize fileSz = bin.tellg();
-    bin.seekg(0, std::ios::beg);
-    if (fileSz < 0 || static_cast<size_t>(fileSz) != imgSz) {
-      LOG_WRN(""); /* TODO */
-      free(imgParams.image);
-      return false;  // OLED still displaying IDLE state.
-    }
-
-    if (!bin.read(reinterpret_cast<char*>(imgParams.image), imgSz)) {
-      LOG_WRN(""); /* TODO */
-      free(imgParams.image);
-      return false;  // OLED still displaying IDLE state.
-    }
-
-    /* Send image data + completion percentage to OLED. */
   }
 
-  /* TODO: Keep display live for pre-configured amount of time, then revert. */
+  return true;
 }

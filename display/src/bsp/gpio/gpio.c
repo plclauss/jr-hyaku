@@ -5,7 +5,7 @@
  * @date 2025-11-23
  */
 
-#include <gpiod.h>  // TODO: Document installation (libgpiod-2.2.tar.xz).
+#include <gpiod.h>
 
 #include "bsp/gpio/gpio.h"
 

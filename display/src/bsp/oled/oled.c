@@ -11,9 +11,6 @@
 #include <unistd.h>
 
 #include "bsp/gpio/gpio.h"
-#include "bsp/oled/Fonts/Inconsolata_Expanded-Regular5pt7b.h"
-#include "bsp/oled/Fonts/Inconsolata_ExtraExpanded-Black6pt7b.h"
-#include "bsp/oled/Fonts/Inconsolata_SemiCondensed-Bold4pt7b.h"
 #include "bsp/oled/oled_cmds.h"
 #include "bsp/spi/spi.h"
 
@@ -93,17 +90,7 @@ static uint16_t dispBuffer[SSD1351_BUFFER_SIZE_B] = {0};
 /**
  * @brief Misc. to help w/ drawing.
  */
-
-/**
- * @brief Used to represent an arbitrary (X, Y) coordinate within the OLED's
- * coordinate system.
- *
- * A value of (UINT8_MAX, UINT8_MAX) is used to indicate errors / an invalid
- * coordinate.
- */
-typedef struct Coordinate {
-  int16_t x, y;
-} Coordinate;
+const Coordinate INVALID_COORDINATE = { UINT8_MAX, UINT8_MAX };
 
 // Padding from the borders of the OLED, to create cleaner displays.
 // Note: This value must be applied to all sides; e.g., the actual drawable with
@@ -122,8 +109,6 @@ static bool oledSetDrawingRegion(const uint8_t x1, const uint8_t y1,
 
 static bool oledStringIsValid(const char *str, const GFXfont *font);
 static const char *oledTokenizeString(const char *str, const char delim);
-static Coordinate oledCalcStringBounds(const char *str, const uint8_t len,
-                                       const GFXfont *font);
 
 /* ********************** STATIC FUNCTION DEFINITIONS *********************** */
 
@@ -259,62 +244,6 @@ static const char *oledTokenizeString(const char *str, const char delim) {
   return (str + idx);
 }
 
-/**
- * @brief Calculates the bounding box of a string by calculating its
- * pixel-width and -height.
- *
- * @param[in] str The string whose pixel-width and -height will be calculated.
- *
- * @param len The length, in bytes, of the input string.
- *
- * @param[in] font The font that the string will be drawn in.
- *
- * The font may change the bounding box, so it's relevant in this context.
- *
- * @return An (X, Y) coordinate, defining the bottom-right corner of the
- * bounding box; (UINT8_MAX, UINT8_MAX), otherwise.
- *
- * @note This function assumes that the top-left corner of the box is at (0, 0).
- */
-static Coordinate oledCalcStringBounds(const char *str, const uint8_t len,
-                                       const GFXfont *font) {
-  // Input Validation
-  const Coordinate INVALID_COORDINATE = {UINT8_MAX, UINT8_MAX};
-  if (!str || !len || !font) return INVALID_COORDINATE;
-
-  Coordinate coord = {0, 0};
-  int16_t leftmostPx = 0, rightmostPx = 0;
-  int16_t topmostPx = 0, bottommostPx = 0;
-  for (uint8_t idx = 0; idx < len; idx += 1) {
-    const char c = str[idx];
-    const GFXglyph *glyph = (c != '\n') ? &font->glyph[c - font->first] : NULL;
-
-    if (glyph) {
-      /* X-Coordinate */
-      const int16_t charXULCorner = (coord.x + glyph->xOffset);
-      const int16_t charXURCorner = (charXULCorner + glyph->width);
-      leftmostPx = MIN_VALUE(leftmostPx, charXULCorner);
-      rightmostPx = MAX_VALUE(rightmostPx, charXURCorner);
-
-      coord.x += glyph->xAdvance;
-
-      /* Y-Coordinate */
-      const int16_t charYULCorner = (coord.y + glyph->yOffset);
-      const int16_t charYBLCorner = (charYULCorner + glyph->height);
-      topmostPx = MIN_VALUE(topmostPx, charYULCorner);
-      bottommostPx = MAX_VALUE(bottommostPx, charYBLCorner);
-    } else {
-      coord.x = 0;
-      coord.y += font->yAdvance;
-    }
-  }
-
-  Coordinate end = {rightmostPx, bottommostPx};
-  if (leftmostPx < 0) end.x += (-leftmostPx);
-  if (topmostPx < 0) end.y += (-topmostPx);
-  return end;
-}
-
 /* ************************** FUNCTION DEFINITIONS ************************** */
 
 /**
@@ -400,6 +329,26 @@ bool oledInit(void) {
 }
 
 /**
+ * @brief Turns the OLED screen off.
+ *
+ * @return True, if the OLED's screen was turned off successfully, OR if the
+ * OLED wasn't initialized at all; false, otherwise.
+ */
+bool oledDeinit(void) {
+  if (!oledIsInitialized) return true;
+
+  const bool deinitStatus = (
+    oledClearScreen() &&
+    oledUpdateDisplay() &&
+    oledSendCommand(SSD1351_CMD_DISP_OFF)
+    /* TODO: Close SPI file descriptor. */
+  );
+
+  if (deinitStatus) oledIsInitialized = false;
+  return deinitStatus;
+}
+
+/**
  * @brief Clears the OLED (to all BLACK).
  *
  * @return True, if the buffer was cleared successfully; false, otherwise.
@@ -442,120 +391,70 @@ bool oledDrawPixel(uint8_t x, uint8_t y, const uint16_t color) {
 }
 
 /**
- * @brief Draws a horizontal line to the GDDRAM buffer.
+ * @brief Calculates the bounding box of a string by calculating its
+ * pixel-width and -height.
  *
- * @param x The starting x-coordinate of the line.
+ * @param[in] str The string whose pixel-width and -height will be calculated.
  *
- * @param y The starting y-coordinate of the line.
+ * @param len The length, in bytes, of the input string.
  *
- * @param w The desired length of the line, in px.
+ * @param[in] font The font that the string will be drawn in.
  *
- * @param color The desired color of the line.
+ * The font may change the bounding box, so it's relevant in this context.
+ * 
+ * @param[out] metrics Used to retrieve the bbox's ascent/descent, which is
+ * useful for proper vertical centering in oledDrawText(...).
  *
- * @return True, if the line was drawn successfully; false, otherwise.
+ * @return An (X, Y) coordinate, defining the bottom-right corner of the
+ * bounding box; (UINT8_MAX, UINT8_MAX), otherwise.
+ *
+ * @note This function assumes that the top-left corner of the box is at (0, 0).
  */
-bool oledDrawHLine(uint8_t x, uint8_t y, uint8_t w, const uint16_t color) {
+Coordinate oledCalcTextBounds(
+  const char *str,
+  const uint8_t len,
+  const GFXfont *font,
+  TextMetrics_t *metrics
+) {
   // Input Validation
-  if (w == 0) return false;  // Nothing to draw.
+  if (!str || !len || !font) return INVALID_COORDINATE;
 
-  // Ensure the display is initialized before drawing to it.
-  if (!oledIsInitialized) return false;
+  Coordinate coord = {0, 0};
+  int16_t leftmostPx = 0, rightmostPx = 0;
+  int16_t topmostPx = 0, bottommostPx = 0;
+  for (uint8_t idx = 0; idx < len; idx += 1) {
+    const char c = str[idx];
+    const GFXglyph *glyph = (c != '\n') ? &font->glyph[c - font->first] : NULL;
 
-  // If the coordinates are out-of-bounds, clamp them to the display's size.
-  if (x >= SSD1351_DISP_WIDTH) x = (SSD1351_DISP_WIDTH - 1);
-  if (y >= SSD1351_DISP_HEIGHT) y = (SSD1351_DISP_HEIGHT - 1);
-  if (w >= (SSD1351_DISP_WIDTH - x)) w = ((SSD1351_DISP_WIDTH - x) - 1);
+    if (glyph) {
+      /* X-Coordinate */
+      const int16_t charXULCorner = (coord.x + glyph->xOffset);
+      const int16_t charXURCorner = (charXULCorner + glyph->width);
+      leftmostPx = MIN_VALUE(leftmostPx, charXULCorner);
+      rightmostPx = MAX_VALUE(rightmostPx, charXURCorner);
 
-  // Draw the line to the framebuffer/display.
-  for (; w > 0; x++, w--) {
-    if (!oledDrawPixel(x, y, color)) return false;
-  }
-  return true;
-}
+      coord.x += glyph->xAdvance;
 
-/**
- * @brief Draws a vertical line to the GDDRAM buffer.
- *
- * @param x The starting x-coordinate of the line.
- *
- * @param y The starting y-coordinate of the line.
- *
- * @param h The desired length of the line, in px.
- *
- * @param color The desired color of the line.
- *
- * @return True, if the line was drawn successfully; false, otherwise.
- */
-bool oledDrawVLine(uint8_t x, uint8_t y, uint8_t h, const uint16_t color) {
-  // Input Validation
-  if (h == 0) return false;  // Nothing to draw.
-
-  // Ensure the display is initialized before drawing to it.
-  if (!oledIsInitialized) return false;
-
-  // If the coordinates are out-of-bounds, clamp them to the display's size.
-  if (x >= SSD1351_DISP_WIDTH) x = (SSD1351_DISP_WIDTH - 1);
-  if (y >= SSD1351_DISP_HEIGHT) y = (SSD1351_DISP_HEIGHT - 1);
-  if (h >= (SSD1351_DISP_HEIGHT - y)) h = ((SSD1351_DISP_WIDTH - y) - 1);
-
-  // Draw the line to the framebuffer/display.
-  for (; h > 0; y++, h--) {
-    if (!oledDrawPixel(x, y, color)) return false;
-  }
-  return true;
-}
-
-/**
- * @brief Draws a square to the GDDRAM buffer.
- *
- * @param x1 The x-coordinate of the top-left corner of the square.
- *
- * @param y1 The y-coordinate of the top-left corner of the square.
- *
- * @param x2 The x-coordinate of the bottom-right corner of the square.
- *
- * @param y2 The y-coordinate of the bottom-right corner of the square.
- *
- * @param color The desired color of the square.
- *
- * @param fill A boolean, which determines whether the square is filled.
- *
- * @return True, if the square was drawn successfully; false, otherwise.
- */
-bool oledDrawSquare(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2,
-                    const uint16_t color, const bool fill) {
-  // Ensure the display is initialized before drawing to it.
-  if (!oledIsInitialized) return false;
-
-  // If the coordinates are out-of-bounds, clamp it to the display's size.
-  if (x1 >= SSD1351_DISP_WIDTH) x1 = (SSD1351_DISP_WIDTH - 1);
-  if (x2 >= SSD1351_DISP_WIDTH) x2 = (SSD1351_DISP_WIDTH - 1);
-  if (y1 >= SSD1351_DISP_HEIGHT) y1 = (SSD1351_DISP_HEIGHT - 1);
-  if (y2 >= SSD1351_DISP_HEIGHT) y2 = (SSD1351_DISP_HEIGHT - 1);
-
-  // Swap coordinates, if necessary.
-  if (x2 < x1) SWAP_VALUE(x1, x2);
-  if (y2 < y1) SWAP_VALUE(y1, y2);
-
-  // Draw the square to the framebuffer, and to the display.
-  const uint8_t w = ((x2 - x1) + 1);
-  if (!oledDrawHLine(x1, y1, w, color)) return false;
-  if (!oledDrawHLine(x1, y2, w, color)) return false;
-
-  const uint8_t h = ((y2 - y1) + 1);
-  if (!oledDrawVLine(x1, y1, h, color)) return false;
-  if (!oledDrawVLine(x2, y1, h, color)) return false;
-
-  // If the square is to be filled, draw those pixels, as well.
-  if (fill) {
-    for (uint8_t x = x1 + 1; x < x2; x += 1) {
-      for (uint8_t y = y1 + 1; y < y2; y += 1) {
-        if (!oledDrawPixel(x, y, color)) return false;
-      }
+      /* Y-Coordinate */
+      const int16_t charYULCorner = (coord.y + glyph->yOffset);
+      const int16_t charYBLCorner = (charYULCorner + glyph->height);
+      topmostPx = MIN_VALUE(topmostPx, charYULCorner);
+      bottommostPx = MAX_VALUE(bottommostPx, charYBLCorner);
+    } else {
+      coord.x = 0;
+      coord.y += font->yAdvance;
     }
   }
 
-  return true;
+  if (metrics) {
+    metrics->ascent = -topmostPx;
+    metrics->descent = bottommostPx;
+  }
+
+  Coordinate end = {rightmostPx, bottommostPx};
+  if (leftmostPx < 0) end.x += (-leftmostPx);
+  if (topmostPx < 0) end.y += (-topmostPx);
+  return end;
 }
 
 /**
@@ -627,22 +526,24 @@ bool oledDrawString(TextParameters textParams) {
       font = &Inconsolata_SemiCondensed_Bold4pt7b;
       break;
     }
+
     case EXPANDED_5PTREGULAR: {
       font = &Inconsolata_Expanded_Regular5pt7b;
       break;
     }
+
     case EXTRA_EXPANDED_6PTBLACK: {
       font = &Inconsolata_ExtraExpanded_Black6pt7b;
       break;
-    }
+}
+
     default: {
       return false;
     }
   }
 
   Coordinate cursor = {0, 0};
-  int16_t textWidth = 0;
-  int16_t textHeight = 0;
+  int16_t textWidth = 0, textHeight = 0;
 
   const char *text = textParams.text;
 
@@ -650,9 +551,9 @@ bool oledDrawString(TextParameters textParams) {
   if (!oledStringIsValid(text, font)) return false;
 
   // Determine exact width / height of text to draw.
-  // Note: Assumes non-centered starting cursor of (0, 0) to make calculation.
-  Coordinate boundingBox = oledCalcStringBounds(text, strlen(text), font);
-  if (boundingBox.x == UINT8_MAX || boundingBox.y == UINT8_MAX) return false;
+  TextMetrics_t metrics;
+  Coordinate boundingBox =
+    oledCalcTextBounds(text, strlen(text), font, &metrics);
 
   textWidth = (boundingBox.x + 1);
   textHeight = (boundingBox.y + 1);
@@ -664,13 +565,13 @@ bool oledDrawString(TextParameters textParams) {
   ;
 
   /* Vertical Bounds Check */
-  const uint8_t boxHeight = textParams.y2 - textParams.y1;
+  const int16_t boxHeight = textParams.y2 - textParams.y1;
   if (textHeight > boxHeight) return false;
 
   // Draw the text to the GDDRAM buffer, tokenizing against newline chars.
   uint8_t tokenIdx = 0;
   bool finishedParsing = false;
-  cursor.y = (textParams.y1 + ((boxHeight - textHeight) / 2));
+  cursor.y = (textParams.y1 + ((boxHeight - textHeight) / 2) + metrics.ascent);
   while (!finishedParsing) {
     // Extract the next token, and ...
     const char *tokenStart = text + tokenIdx;
@@ -679,10 +580,16 @@ bool oledDrawString(TextParameters textParams) {
 
     if ((*tokenEnd) == '\0') finishedParsing = true;
 
-    // ...Draw token to GDDRAM buffer.
-    /* Calculate token's dimensions; useful for text-clipping and centering. */
-    boundingBox = oledCalcStringBounds(tokenStart, tokenLen, font);
-    if (boundingBox.x == UINT8_MAX || boundingBox.y == UINT8_MAX) return false;
+    // ... Draw token to GDDRAM buffer (if not empty).
+    if (!tokenLen) { // Implies newline found, tokenLen == 0; skip.
+      tokenIdx += 1;
+      cursor.y += font->yAdvance;
+      continue; // To next iteration of while-loop.
+    }
+
+    /* Calculate token's dimensions; useful for text-clipping + centering. */
+    boundingBox = oledCalcTextBounds(tokenStart, tokenLen, font, NULL);
+    if (oledCoordinateIsInvalid(boundingBox)) return false;
 
     int16_t tokenWidth = (boundingBox.x + 1);
     int16_t tokenHeight = (boundingBox.y + 1);
@@ -702,10 +609,8 @@ bool oledDrawString(TextParameters textParams) {
     if (needsHyphen) {
       if ('-' < font->first || '-' > font->last) return false;
       const char *hyphen = "-";
-      boundingBox = oledCalcStringBounds(hyphen, 1, font);
-      if (boundingBox.x == UINT8_MAX || boundingBox.y == UINT8_MAX) {
-        return false;
-      }
+      boundingBox = oledCalcTextBounds(hyphen, 1, font, NULL);
+      if (oledCoordinateIsInvalid(boundingBox)) return false;
 
       hyphenWidth = (boundingBox.x + 1);
     }
@@ -726,51 +631,56 @@ bool oledDrawString(TextParameters textParams) {
         uint16_t bo = glyph->bitmapOffset;
         const uint8_t w = glyph->width;
         const uint8_t h = glyph->height;
-        const int8_t xo = glyph->xOffset;
-        const int8_t yo = glyph->yOffset;
+        const uint8_t xo = glyph->xOffset;
+        const uint8_t yo = glyph->yOffset;
 
         uint8_t bit = 0, bits = 0;
         for (uint8_t yy = 0; yy < h; yy++) {
           for (uint8_t xx = 0; xx < w; xx++) {
             if (!(bit++ & 7)) bits = bitmap[bo++];
 
-            if ((bits & 0x80) &&
-                !oledDrawPixel(cursor.x + xo + xx, cursor.y + yo + yy,
-                               textParams.color)) {
-              return false;
-            }
+            if (
+                (bits & 0x80) &&
+                !oledDrawPixel(
+                  cursor.x + xo + xx,
+                  cursor.y + yo + yy,
+                  textParams.color
+                )
+              ) { return false; }
 
             bits <<= 1;
           }
         }
 
-        break;  // Out of for-loop.
+        break; // Out of for-loop.
       }
       // Otherwise, draw the current character.
       else {
         uint16_t bo = glyph->bitmapOffset;
         const uint8_t w = glyph->width;
         const uint8_t h = glyph->height;
-        const int8_t xo = glyph->xOffset;
-        const int8_t yo = glyph->yOffset;
+        const uint8_t xo = glyph->xOffset;
+        const uint8_t yo = glyph->yOffset;
 
         uint8_t bit = 0, bits = 0;
         for (uint8_t yy = 0; yy < h; yy++) {
           for (uint8_t xx = 0; xx < w; xx++) {
             if (!(bit++ & 7)) bits = bitmap[bo++];
 
-            if ((bits & 0x80) &&
-                !oledDrawPixel(cursor.x + xo + xx, cursor.y + yo + yy,
-                               textParams.color)) {
-              return false;
-            }
+            if (
+                (bits & 0x80) &&
+                !oledDrawPixel(
+                  cursor.x + xo + xx,
+                  cursor.y + yo + yy,
+                  textParams.color
+                )
+          ) { return false; }
 
             bits <<= 1;
           }
         }
       }
 
-      // Advance the cursor by the character's advance value.
       cursor.x += glyph->xAdvance;
     }
 
@@ -853,16 +763,13 @@ bool oledUpdateDisplay(void) {
 }
 
 /**
- * @brief Turns the OLED screen off.
- *
- * @return True, if the OLED's screen was turned off successfully, OR if the
- * OLED wasn't initialized at all; false, otherwise.
+ * @brief Determines whether a Coordinate is invalid. This function is generally
+ * useful after a call to oledCalcTextBounds(...).
+ * 
+ * @param coord The Coordinate whose validity is in question.
+ * 
+ * @return True, if `coord` is invalid; false, otherwise.
  */
-bool oledDeinit(void) {
-  if (!oledIsInitialized) return true;
-
-  const bool deinitStatus = (oledClearScreen() && oledUpdateDisplay() &&
-                             oledSendCommand(SSD1351_CMD_DISP_OFF));
-  if (deinitStatus) oledIsInitialized = false;
-  return deinitStatus;
+bool oledCoordinateIsInvalid(const Coordinate coord) {
+  return (coord.x == INVALID_COORDINATE.x || coord.y == INVALID_COORDINATE.y);
 }

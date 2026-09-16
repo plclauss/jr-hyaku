@@ -6,6 +6,7 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
 - [Inspiration](#inspiration)
 - [Installation](#installation)
     - [Overview](#overview)
+    - [Dependency Installation](#dependency-installation)
     - [Asset Installation](#asset-installation)
     - [Database Setup](#database-setup)
     - [Service Setup & Installation](#service-setup--installation)
@@ -49,6 +50,53 @@ The directory structure is more involved (all paths are relative to `~/Desktop/j
 │   └── TBD                     # SPI, GPIO, OLED drivers, etc.
 └── misc/
     └── install_dependencies.sh # System-level dependency installer
+```
+
+#### Dependency Installation
+
+The following must be installed for cross-compilation:
+- [libgpiod-2.2](https://mirrors.edge.kernel.org/pub/software/libs/libgpiod/libgpiod-2.2.tar.xz)
+- [nlohmann/json](https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz)
+
+See below for instructions on how to install these properly. First, though, you'll want to establish the sysroot:
+
+```bash
+# On the remote computer.
+mkdir -p ~/aarch64-sysroot/
+mkdir -p ~/aarch64-sysroot/usr
+mkdir -p ~/aarch64-sysroot/usr/{include,lib}
+```
+
+*(Note: Normally, you'd want to do this with `debootstrap`, but this is much easier / faster).*
+
+Also, don't forget to add this to your `c_cpp_properties.json` file in VS Code to avoid those pesky Intellisense errors:
+
+```json
+"includePath": [
+    "${workspaceFolder}/**",
+    "${env:HOME}/aarch64-sysroot/usr/include/**" <-- this line!
+],
+```
+
+##### libgpiod
+
+```bash
+# On the remote computer.
+wget https://mirrors.edge.kernel.org/pub/software/libs/libgpiod/libgpiod-2.2.tar.xz
+tar -xf libgpiod-2.2.tar.xz
+cd libgpiod-2.2
+./configure --host=aarch64-linux-gnu --prefix=/usr --enable-tools=no
+make -j$(nproc)
+make install DESTDIR=$HOME/aarch64-sysroot
+```
+
+##### nlohmann/json
+
+```bash
+# On the remote computer.
+mkdir -p ~/aarch64-sysroot/usr/include/nlohmann
+wget -O ~/aarch64-sysroot/usr/include/nlohmann/json.hpp \
+  https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp
 ```
 
 #### Asset Installation

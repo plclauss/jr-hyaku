@@ -33,6 +33,8 @@ void App::run() {
       std::this_thread::sleep_for(std::chrono::seconds(10));
 
       /* TODO: Revert to IDLE screen. */
+    } else {
+      LOG_WRN("%s: Failed to handle JSON command", __func__);
     }
   }  // End while-loop.
 
@@ -106,19 +108,25 @@ bool App::jsonReadImageData(const std::string& line) {
   const std::string filepath = home + "/Desktop/jr-hyaku/assets/" + line + ".bin";
   std::ifstream bin(filepath, std::ios::binary);
   if (!bin.is_open()) {
-    LOG_WRN("%s: Failed to open line=%s (path=%s)", __func__, line, filepath);
+#ifdef DEBUG
+    LOG_DBG("%s: Failed to open line=%s (path=%s)", __func__, line, filepath);
+#endif
     return false;
   }
 
   std::error_code ec;
   const auto fileSz = std::filesystem::file_size(filepath, ec);
   if (ec || imgSz != fileSz) {
-    LOG_WRN("%s: Cannot read image; invalid file size=%zu", __func__, fileSz);
+#ifdef DEBUG
+    LOG_DBG("%s: Cannot read image; invalid file size=%zu", __func__, fileSz);
+#endif
     return false;
   }
 
   if (!bin.read(reinterpret_cast<char*>(buffer.get()), imgSz)) {
-    LOG_WRN("%s: Failed to read image data from file", __func__);
+#ifdef DEBUG
+    LOG_DBG("%s: Failed to read image data from file", __func__);
+#endif
     return false;
   }
 
@@ -147,13 +155,17 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
 
     // Clear previous GDDRAM.
     if (!oledClearScreen()) {
-      LOG_WRN("%s: Failed to clear previous GDDRAM buffer", __func__);
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to clear previous GDDRAM buffer", __func__);
+#endif
       return false;
     }
 
     // Draw image to GDDRAM.
     if (!oledDrawImage(this->imageParams_)) {
-      LOG_WRN("%s: Failed to draw PNG to GDDRAM", __func__);
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to draw PNG to GDDRAM", __func__);
+#endif
       return false;
     }
 
@@ -167,12 +179,14 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
     Coordinate captionBbox =
       oledCalcTextBounds(captionCStr, strlen(captionCStr), font_, NULL);
     if (oledCoordinateIsInvalid(captionBbox)) {
-      LOG_WRN(
+#ifdef DEBUG
+      LOG_DBG(
         "%s: Caption bbox invalid ({%zu, %zu})",
         __func__,
         captionBbox.x,
         captionBbox.y
       );
+#endif
       return false;
     }
 
@@ -186,13 +200,17 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
       .center = true,
     };
     if (!oledDrawString(tp)) {
-      LOG_WRN("%s: Failed to draw caption to GDDRAM", __func__);
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to draw caption to GDDRAM", __func__);
+#endif
       return false;
     }
 
     // Update OLED w/ content of GDDRAM.
     if (!oledUpdateDisplay()) {
-      LOG_WRN("%s: Failed to update display w/ line data", __func__);
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to update display w/ line data", __func__);
+#endif
       return false;
     }
   }

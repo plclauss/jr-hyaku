@@ -72,6 +72,14 @@ bool App::jsonCommandIsValid(const nlohmann::json& json) {
 }
 
 /**
+ * @brief Gets the RPi's home directory.
+ */
+std::string App::getHomeDir() {
+  const char *home = std::getenv("HOME");
+  return (home) ? std::string(home) : "";
+}
+
+/**
  * @brief Reads an image's .bin file into memory for displaying.
  * @param line The name of the line to display; all files follow the same
  * standard, using the name as a unique identifier.
@@ -94,7 +102,8 @@ bool App::jsonReadImageData(const std::string& line) {
   );
   auto buffer = std::make_unique<uint8_t[]>(imgSz);
 
-  const std::string filepath = "~/Desktop/jr-hyaku/assets/" + line + ".bin";
+  const std::string home = getHomeDir();
+  const std::string filepath = home + "/Desktop/jr-hyaku/assets/" + line + ".bin";
   std::ifstream bin(filepath, std::ios::binary);
   if (!bin.is_open()) {
     LOG_WRN("%s: Failed to open line=%s (path=%s)", __func__, line, filepath);

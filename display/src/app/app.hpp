@@ -32,6 +32,7 @@ class App {
   bool jsonCommandIsValid(const nlohmann::json& json);
 
   ImageParameters imageParams_;
+  std::string getHomeDir();
   bool jsonReadImageData(const std::string& line);
   bool jsonHandleCommand(const nlohmann::json& json);
 };

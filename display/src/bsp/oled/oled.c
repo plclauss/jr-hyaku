@@ -92,11 +92,6 @@ static uint16_t dispBuffer[SSD1351_BUFFER_SIZE_B] = {0};
  */
 const Coordinate INVALID_COORDINATE = { UINT8_MAX, UINT8_MAX };
 
-// Padding from the borders of the OLED, to create cleaner displays.
-// Note: This value must be applied to all sides; e.g., the actual drawable with
-// is (SSD1351_DISP_WIDTH - (2 * SSD1351_DISP_PADDING_PX)).
-#define SSD1351_DISP_PADDING_PX (5)
-
 /* ************************ STATIC FUNCTION PROTOS. ************************* */
 
 // Low-Level Functions
@@ -391,6 +386,50 @@ bool oledDrawPixel(uint8_t x, uint8_t y, const uint16_t color) {
 }
 
 /**
+ * @brief Draws a point (cross, '+'), centered at the (x, y) coordinate.
+ * 
+ * @param x The desired x-coordinate center of the point.
+ * 
+ * @param y The desired y-coordinate center of the point.
+ * 
+ * @param color The desired color of the point.
+ * 
+ * @return True, if the point was drawn successfully; false, otherwise.
+ * 
+ * @note Changes will not be visible until oledUpdateDisplay() is invoked.
+ */
+bool oledDrawPoint(uint8_t x, uint8_t y, const uint16_t color) {
+  // Ensure the display is initialized before drawing to it.
+  if (!oledIsInitialized) return false;
+
+  // If the (x, y) coordinate is out-of-bounds, clamp it to the display's size.
+  if (x >= SSD1351_DISP_WIDTH) x = (SSD1351_DISP_WIDTH - 1);
+  if (y >= SSD1351_DISP_HEIGHT) y = (SSD1351_DISP_HEIGHT - 1);
+
+  // Draw the point -- a simple cross ('+'), centered at (x, y).
+  const bool left = (x > 0);
+  const bool right = (x < (SSD1351_DISP_WIDTH - 1));
+  const bool up = (y > 0);
+  const bool down = (y < (SSD1351_DISP_HEIGHT - 1));
+
+  oledDrawPixel(x, y, color);
+  // '+'
+  // if (left)   if (!oledDrawPixel(x - 1, y, color)) return false;
+  // if (right)  if (!oledDrawPixel(x + 1, y, color)) return false;
+  // if (up)     if (!oledDrawPixel(x, y - 1, color)) return false;
+  // if (down)   if (!oledDrawPixel(x, y + 1, color)) return false;
+
+  // 'X'
+  if (left && up)    if (!oledDrawPixel(x - 1, y - 1, color)) return false;
+  if (right && up)   if (!oledDrawPixel(x + 1, y - 1, color)) return false;
+  if (left && down)  if (!oledDrawPixel(x - 1, y + 1, color)) return false;
+  if (right && down) if (!oledDrawPixel(x + 1, y + 1, color)) return false;
+
+
+  return true;
+}
+
+/**
  * @brief Calculates the bounding box of a string by calculating its
  * pixel-width and -height.
  *
@@ -485,36 +524,24 @@ bool oledDrawString(TextParameters textParams) {
   if (!textParams.text) return false;
 
   // Clamp the text coordinates to w/in the display's border.
-  const uint8_t _DISP_WIDTH =
-      (SSD1351_DISP_WIDTH - (2 * SSD1351_DISP_PADDING_PX));
-  const uint8_t _DISP_HEIGHT =
-      (SSD1351_DISP_HEIGHT - (2 * SSD1351_DISP_PADDING_PX));
-
   /* X-Coordinates */
-  if (textParams.x < SSD1351_DISP_PADDING_PX) {
-    textParams.x = (SSD1351_DISP_PADDING_PX + 1);
-  } else if (textParams.x >= _DISP_WIDTH) {
-    textParams.x = (_DISP_WIDTH - 1);
+  if (textParams.x < 0) textParams.x = 0;
+  else if (textParams.x >= SSD1351_DISP_WIDTH) {
+    textParams.x = (SSD1351_DISP_WIDTH - 1);
   }
 
   /* Y-Coordinates */
-  if (textParams.y1 < SSD1351_DISP_PADDING_PX) {
-    textParams.y1 = (SSD1351_DISP_PADDING_PX + 1);
-  } else if (textParams.y1 >= _DISP_HEIGHT) {
-    textParams.y1 = (_DISP_HEIGHT - 1);
+  if (textParams.y1 < 0) textParams.y1 = 0;
+  else if (textParams.y1 >= SSD1351_DISP_HEIGHT) {
+    textParams.y1 = (SSD1351_DISP_HEIGHT - 1);
   }
 
-  if (textParams.y2 < SSD1351_DISP_PADDING_PX) {
-    textParams.y2 = (SSD1351_DISP_PADDING_PX + 1);
-  } else if (textParams.y2 >= _DISP_HEIGHT) {
-    textParams.y2 = (_DISP_HEIGHT - 1);
+  if (textParams.y2 < 0) textParams.y2 = 0;
+  else if (textParams.y2 >= SSD1351_DISP_HEIGHT) {
+    textParams.y2 = (SSD1351_DISP_HEIGHT - 1);
   }
 
-  if (textParams.y1 == textParams.y2) {
-    return false;
-  } else if (textParams.y2 < textParams.y1) {
-    SWAP_VALUE(textParams.y1, textParams.y2);
-  }
+  if (textParams.y1 > textParams.y2) SWAP_VALUE(textParams.y1, textParams.y2);
 
   // Ensure the display is initialized before drawing to it.
   if (!oledIsInitialized) return false;
@@ -598,13 +625,13 @@ bool oledDrawString(TextParameters textParams) {
     if (!textParams.center) {
       cursor.x = textParams.x;
     } else {
-      const int16_t effectiveWidth = MIN_VALUE(tokenWidth, _DISP_WIDTH);
-      cursor.x = ((_DISP_WIDTH - effectiveWidth) / 2) + SSD1351_DISP_PADDING_PX;
+      const int16_t effectiveWidth = MIN_VALUE(tokenWidth, SSD1351_DISP_WIDTH);
+      cursor.x = ((SSD1351_DISP_WIDTH - effectiveWidth) / 2);
     }
 
     /* Determine whether clipping is necessary. */
     int16_t hyphenWidth = 0;
-    const int16_t rightEdge = (SSD1351_DISP_WIDTH - SSD1351_DISP_PADDING_PX);
+    const int16_t rightEdge = SSD1351_DISP_WIDTH;
     const bool needsHyphen = ((cursor.x + tokenWidth) > rightEdge);
     if (needsHyphen) {
       if ('-' < font->first || '-' > font->last) return false;

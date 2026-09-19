@@ -44,6 +44,7 @@ bool oledDeinit(void);
  */
 bool oledClearScreen(void);
 bool oledDrawPixel(uint8_t x, uint8_t y, const uint16_t color);
+bool oledDrawPoint(uint8_t x, uint8_t y, const uint16_t color);
 
 typedef struct Coordinate {
   int16_t x, y;

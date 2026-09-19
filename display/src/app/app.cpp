@@ -6,6 +6,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <vector>
 
 #include "utils/logger/logger.h"
 
@@ -53,19 +54,45 @@ void App::stop() { this->running_.store(false); }
  */
 bool App::jsonCommandIsValid(const nlohmann::json& json) {
   try {
+    /* Cmd Type */
     std::string cmdType = json.at("cmd").get<std::string>();
     if (cmdType != "show_line") {
-      LOG_WRN("%s: Unknown JSON command received: %s", __func__, cmdType);
+      LOG_WRN("%s: Unknown JSON command received: %s", __func__, cmdType.c_str());
       return false;
     }
 
+    /* Line Name + Completion Percentage */
     std::string lineName = json.at("line_name").get<std::string>();
     double completionPct = json.at("completion_pct").get<double>();
-    LOG_INF("%s: Valid JSON received: %s", __func__, json.dump().c_str());
 
+    /* Stations list w/ station_cd, px, and py values. */
+    const nlohmann::json& stations = json.at("stations");
+    if (!stations.is_array()) {
+      LOG_WRN("%s: 'stations' has invalid format", __func__);
+      return false;
+    }
+
+    if (stations.empty()) {
+      LOG_WRN(
+        "%s: line=%s has no stations; nothing to draw",
+        __func__,
+        lineName.c_str()
+      );
+      return false;
+    }
+
+    for (const auto& station : stations) {
+      station.at("station_cd").get<int32_t>();
+      station.at("px").get<int32_t>();
+      station.at("py").get<int32_t>();
+    }
+
+    LOG_INF("%s: Valid JSON received: %s", __func__, json.dump().c_str());
     return true;
   } catch (const nlohmann::json::out_of_range& e) {
+    LOG_WRN("%s: Missing info in cmd: %s", __func__, e.what());
   } catch (const nlohmann::json::type_error& e) {
+    LOG_WRN("%s: Wrong field type: %s", __func__, e.what());
   } catch (const std::exception& e) {
     LOG_WRN("%s: JSON invalid (unknown): %s", __func__, e.what());
   }
@@ -147,6 +174,7 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
   /* Extract relevant display-able information. */
   const std::string line = json.at("line_name").get<std::string>();
   const double completionPct = json.at("completion_pct").get<double>();
+  const nlohmann::json& stations = json.at("stations");
 
   /* Display relevant information. */
   {
@@ -190,20 +218,38 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
       return false;
     }
 
+    const int16_t yStart = ((SSD1351_DISP_HEIGHT - 1) - (captionBbox.y + 1));
     const TextParameters tp = {
       .font = SEMI_CONDENSED_4PTBOLD,
       .color = WHITE,
       .text = captionCStr,
       .x = 0,
-      .y1 = --captionBbox.y,
+      .y1 = yStart,
       .y2 = SSD1351_DISP_HEIGHT,
       .center = true,
     };
+
     if (!oledDrawString(tp)) {
 #ifdef DEBUG
       LOG_DBG("%s: Failed to draw caption to GDDRAM", __func__);
 #endif
       return false;
+    }
+
+    // Station markers
+    for (const auto& station : stations) {
+      const int32_t px = station.at("px").get<int32_t>();
+      const int32_t py = station.at("py").get<int32_t>();
+
+      if (!oledDrawPoint(px, py, WHITE)) {
+#ifdef DEBUG
+        LOG_DBG(
+          "%s: Failed to draw station marker @ (%d, %d)",
+          __func__, px, py
+        );
+#endif
+        return false;
+      }
     }
 
     // Update OLED w/ content of GDDRAM.

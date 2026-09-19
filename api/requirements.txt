@@ -1,3 +1,5 @@
+numpy
+pandas
 fastapi[standard]
 pydantic
 uvicorn[standard]

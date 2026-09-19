@@ -203,7 +203,8 @@ CREATE TABLE lines (
     line_cd INTEGER NOT NULL UNIQUE,
     line_name VARCHAR(80) NOT NULL,
     route_color VARCHAR(8) DEFAULT '#FFFFFF',
-    line_type INTEGER DEFAULT 0
+    line_type INTEGER DEFAULT 0,
+    line_bbox TEXT
 );
 CREATE TABLE stations (
     pk INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -223,7 +224,7 @@ And, we can insert the data!
 cd ~/Desktop/jr-hyaku/assets/db
 python3 -m venv .venv
 source .venv/bin/activate
-pip install psycopg[binary]
+pip install numpy pandas psycopg[binary]
 python3 db-setup.py
 deactivate
 ```

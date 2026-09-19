@@ -136,7 +136,7 @@ char *ipcReadFrame(const int32_t fd) {
   uint8_t buf[4] = {0};
   if (!ipcReadFull(fd, buf, 4)) return NULL;
 
-  static const uint32_t __MAX_JSON_SZ_B = 512U;
+  static const uint32_t __MAX_JSON_SZ_B = 8192U;
   const uint32_t jsonSz = (((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
                            ((uint32_t)buf[2] << 8) | ((uint32_t)buf[3] << 0));
   if (!jsonSz || jsonSz > __MAX_JSON_SZ_B) {

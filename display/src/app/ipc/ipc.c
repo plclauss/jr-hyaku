@@ -10,7 +10,7 @@
 
 #include "utils/logger/logger.h"
 
-#define SOCKET_NAME ("/run/jr-hyaku.sock")
+#define SOCKET_NAME ("/run/jr-hyaku/jr-hyaku.sock")
 #define DFLT_SOCKET_BACKLOG (3)
 
 /**
@@ -33,7 +33,7 @@ int32_t ipcInitUNIXDomainSocket(void) {
   if (flags == -1 || fcntl(socketFd, F_SETFL, flags | O_NONBLOCK) == -1) {
     LOG_ERR("Failed to make socket non-blocking: %s", strerror(errno));
     ipcDeinitUNIXDomainSocket(socketFd);
-    return false;
+    return LINUX_INVAL_SOCKET_FD;
   }
 
   /* Bind socket to a name. */

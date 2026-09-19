@@ -9,7 +9,8 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
     - [Dependency Installation](#dependency-installation)
     - [Asset Installation](#asset-installation)
     - [Database Setup](#database-setup)
-    - [Service Setup & Installation](#service-setup--installation)
+    - [API Setup & Installation](#api-setup--installation)
+    - [Displayer Setup & Installation](#displayer-setup--installation)
 - [Resources](#resources)
     - [Vemaps](#vemaps)
     - [Geographic Data](#geographic-data)
@@ -47,7 +48,7 @@ The directory structure is more involved (all paths are relative to `~/Desktop/j
 ├── assets/
 │   └── *.png                   # Static images
 ├── src/
-│   └── TBD                     # SPI, GPIO, OLED drivers, etc.
+│   └── jrhyaku-displayer       # C-side logic (SPI, GPIO, OLED etc.)
 └── misc/
     └── install_dependencies.sh # System-level dependency installer
 ```
@@ -122,14 +123,98 @@ mkdir -p ~/Desktop/jr-hyaku/assets
 ```bash
 # On the remote computer, in jr-hyaku -- this may take a while...
 sudo apt install -y sshpass
-sshpass -p "<pi-pw>" scp tools/python/data/images/*.png <pi-username>@<pi-ip>:Desktop/jr-hyaku/assets
+sshpass -p "<pi-pw>" scp -v tools/python/data/images/*.png <pi-username>@<pi-ip>:Desktop/jr-hyaku/assets
 ```
 
 #### Database Setup
 
-**INSTRUCTIONS TBD**
+The application uses a PostgreSQL database to store the tracking information. Adhere to the following.
 
-#### Service Setup & Installation
+*(Note: All instructions are to be done on the Pi Zero 2W).*
+
+First, install the dependeny:
+
+```bash
+sudo apt install -y postgresql-15
+```
+
+Next, although not strictly necessary, I like to create a password for the default user:
+
+```bash
+sudo -i -u postgres
+psql
+ALTER USER postgres PASSWORD 'postgres';
+\q
+exit
+```
+
+Now, to make access easier, we edit the `/etc/postgresql/15/main/pg_hba.conf` file. `sudo <nano/vim>` into this file, and edit the following lines:
+
+```
+local all postgres peer -> local all postgres md5
+local all all peer -> local all all md5
+```
+
+After, restart the service (, and we might as well get the locale settings up and running while we're at it 😉):
+
+```bash
+sudo sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+sudo locale-gen
+
+sudo systemctl restart postgresql
+```
+
+Now, let's create a new user specifically for this application:
+
+```postgres
+psql -U postgres
+CREATE USER developer WITH PASSWORD 'yourpassword' CREATEDB;
+CREATE DATABASE jrhyaku
+  WITH OWNER developer
+  ENCODING 'UTF8'
+  LC_COLLATE 'en_US.UTF-8'
+  LC_CTYPE 'en_US.UTF-8'
+  TEMPLATE template0;
+exit
+```
+
+To make it access under this user easier, we can add the credentials to the `~/.pgpass` file. `sudo <nano/vim>` into this file, and add the following line:
+
+```
+localhost:5432:jrhyaku:developer:yourpassword
+```
+
+And don't forget to add the permissions!
+
+```bash
+sudo chmod 600 ~/.pgpass
+sudo chown $(whoami):$(whoami) ~/.pgpass
+```
+
+Finally, we can create all of the tables:
+
+```postgres
+psql -U developer -d jrhyaku
+CREATE TABLE lines (
+    pk INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    line_cd INTEGER NOT NULL UNIQUE,
+    line_name VARCHAR(80) NOT NULL,
+    route_color VARCHAR(8) DEFAULT '#FFFFFF',
+    line_type INTEGER DEFAULT 0
+);
+CREATE TABLE stations (
+    pk INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    station_cd INTEGER NOT NULL UNIQUE,
+    station_name VARCHAR(80) NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    visited_at TIMESTAMPTZ,
+    line_cd INTEGER NOT NULL,
+    FOREIGN KEY (line_cd) REFERENCES lines(line_cd)
+);
+```
+
+#### API Setup & Installation
 
 The `jr-hyaku-api.service` is used to ensure the HTTP API is always active, from the Pi's boot sequence.
 
@@ -146,7 +231,7 @@ python3 -m venv .venv
 ```bash
 # On the remote computer, in jr-hyaku
 sudo apt install -y sshpass
-sshpass -p "<pi-pw>" scp api/api.py api/db.py api/install.sh api/jr-hyaku-api.service api/requirements.txt <pi-username>@<pi-ip>:Desktop/jr-hyaku/api
+sshpass -p "<pi-pw>" scp -v api/api.py api/db.py api/display.py api/install.sh api/jr-hyaku-api.service api/requirements.txt <pi-username>@<pi-ip>:Desktop/jr-hyaku/api
 ```
 
 ```bash
@@ -154,7 +239,41 @@ sshpass -p "<pi-pw>" scp api/api.py api/db.py api/install.sh api/jr-hyaku-api.se
 cd ~/Desktop/jr-hyaku/api
 chmod +x ./install.sh
 source .venv/bin/active
+pip install -r requirements.txt
 sudo ./install.sh /opt/api ~/Desktop/jr-hyaku/api/.venv/
+```
+
+#### Displayer Setup & Installation
+
+This one's also easy! If you haven't already (or if there isn't one present in the repo by default), generate the executable:
+
+```bash
+# On the remote computer, in jr-hyaku
+cd display/build
+./build -ld
+```
+
+Then, simply send it and configure::
+
+```bash
+# On the Pi Zero 2W
+mkdir -p ~/Desktop/jr-hyaku
+mkdir -p ~/Desktop/jr-hyaku/src
+```
+
+```bash
+# On the remote computer, in jr-hyaku
+sudo apt install -y sshpass
+sshpass -p "<pi-pw>" scp -v display/build/bin/jrhyaku-displayer display/jr-hyaku-displayer.service <pi-username>@<pi-ip>:Desktop/jr-hyaku/src
+```
+
+```bash
+# On the Pi Zero 2W
+cd ~/Desktop/jr-hyaku/src
+sudo cp jr-hyaku-displayer.service /etc/systemd/system
+sudo systemctl daemon-reload
+sudo systemctl enable jr-hyaku-displayer.service
+sudo systemctl start jr-hyaku-displayer.service
 ```
 
 ### Resources

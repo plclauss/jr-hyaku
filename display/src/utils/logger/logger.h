@@ -43,6 +43,8 @@ void loggerLog(const LogLevel level, const char* fmt, ...)
  * @param level Severity of the message, used to populate its tag.
  * @param format printf()-style format string.
  * @param args Arguments corresponding to `format`'s specifiers, if any.
+ * 
+ * @warning Lengthy format strings may be truncated and prevent logging.
  */
 void loggerLogV(const LogLevel level, const char* format, va_list args);
 

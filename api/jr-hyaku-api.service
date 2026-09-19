@@ -1,13 +1,13 @@
 [Unit]
 Description=JR Hyaku HTTP API
-After=network.target postgresql.service
-Wants=postgresql.service
+After=network.target postgresql.service jr-hyaku-displayer.service
+Wants=postgresql.service jr-hyaku-displayer.service
 
 [Service]
 Type=simple
 User=<@@@>
 WorkingDirectory=/home/<@@@>/Desktop/jr-hyaku/api
-ExecStart=/home/<@@@>/jr-hyaku/api/.venv/bin/uvicorn api:api --host 0.0.0.0 --port 8000
+ExecStart=/home/<@@@>/Desktop/jr-hyaku/api/.venv/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 
 Restart=always
 RestartSec=30

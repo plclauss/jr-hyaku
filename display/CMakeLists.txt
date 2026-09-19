@@ -1,12 +1,12 @@
 # The typical stuff...
 cmake_minimum_required(VERSION 4.2)
 
-project(SVGDisplayer)
+project(JRHyaku)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/bin")
-add_executable(SVGDisplayer)
+add_executable(jrhyaku-displayer)
 
 # Dependency - GPIOD / libgpiod
 find_package(PkgConfig REQUIRED)
@@ -20,20 +20,20 @@ FetchContent_MakeAvailable(json)
 # More typical stuff... (compilation)
 if(DEFINED DEBUG)
     message("Compiling DEBUG mode...")
-    target_compile_definitions(SVGDisplayer PRIVATE LOGGER_ENABLE DEBUG)
+    target_compile_definitions(jrhyaku-displayer PRIVATE LOGGER_ENABLE DEBUG)
 endif()
 
 if(DEFINED LOGGER_ENABLE)
-    target_compile_definitions(SVGDisplayer PRIVATE LOGGER_ENABLE)
+    target_compile_definitions(jrhyaku-displayer PRIVATE LOGGER_ENABLE)
 endif()
 
 file(GLOB_RECURSE SRC_FILES
     src/*.c
     src/*.cpp
 )
-target_sources(SVGDisplayer PRIVATE ${SRC_FILES})
-target_include_directories(SVGDisplayer PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(SVGDisplayer PRIVATE
+target_sources(jrhyaku-displayer PRIVATE ${SRC_FILES})
+target_include_directories(jrhyaku-displayer PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(jrhyaku-displayer PRIVATE
     PkgConfig::GPIOD
     nlohmann_json::nlohmann_json
 )

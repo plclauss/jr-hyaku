@@ -34,12 +34,26 @@ static void loggerFormatTimestamp(char* buf, const size_t bufSz) {
 void loggerLogV(const LogLevel level, const char* format, va_list args) {
   if (level < 0 || level >= NUM_LOG_LEVELS || format == NULL) return;
 
+  /* Format timestamp. */
   char timestamp[32];
   loggerFormatTimestamp(timestamp, sizeof(timestamp));
 
-  printf("[%s] [%s] ", timestamp, LOG_LEVEL_TAGS[level]);
-  vprintf(format, args);
-  printf("\r\n");
+  /* Format log line. */
+  char line[1024];
+  int32_t n = snprintf(
+    line, sizeof(line), "[%s] [%s] ",
+    timestamp, LOG_LEVEL_TAGS[level]
+  );
+
+  if (n > 0 && (size_t)n < sizeof(line)) {
+    const size_t len = (size_t)n;
+    n = vsnprintf(line + len, sizeof(line) - len, format, args);
+    if (n < 0 || (size_t)n >= sizeof(line)) return;
+  } else { return; }
+
+  /* Output to stream + Flush. */
+  printf("%s\r\n", line);
+  fflush(stdout);
 }
 
 void loggerLog(const LogLevel level, const char* format, ...) {

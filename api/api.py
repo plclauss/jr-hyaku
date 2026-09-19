@@ -52,6 +52,11 @@ class StationUpdate(BaseModel):
     visited_at: datetime | None = None
 
 
+@app.get("/status")
+async def get_status():
+    return { "status": "API active!" }
+
+
 @app.get("/lines", response_model=list[Line])
 async def get_lines():
     return db.fetch_lines()

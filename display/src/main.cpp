@@ -15,10 +15,7 @@ typedef enum {
 } StatusCodes;
 
 std::atomic<bool> running_{true};
-extern "C" void sigtermHandler(int32_t) {
-  LOG_INF("SIGTERM received; shutting down");
-  running_.store(false);
-}
+extern "C" void sigtermHandler(int32_t) { running_.store(false); }
 
 int32_t main(void) {
   /* Initial log(s). */
@@ -42,13 +39,17 @@ int32_t main(void) {
 
   // UNIX domain socket for IPC b/w HTTP API.
   const int32_t socketFd = ipcInitUNIXDomainSocket();
-  if (socketFd == LINUX_INVAL_SOCKET_FD) return STAT_CODE_INIT_ERR;
+  if (socketFd == LINUX_INVAL_SOCKET_FD) {
+    oledDeinit();
+    return STAT_CODE_INIT_ERR;
+  }
 
   // High-level handles.
   Server server(socketFd);
   App app(server);
 
   /* Start application thread, and wait for event to shutdown. */
+  LOG_INF("All dependencies initialized! Running app...");
   std::thread serverThread([&]() { server.run(); });
   std::thread appThread([&]() { app.run(); });
 
@@ -57,6 +58,8 @@ int32_t main(void) {
   }
 
   /* De-initialize all resources. */
+  LOG_INF("SIGTERM received; shutting down");
+
   app.stop();
   appThread.join();
 

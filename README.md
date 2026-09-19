@@ -46,7 +46,8 @@ The directory structure is more involved (all paths are relative to `~/Desktop/j
 │   ├── jr-hyaku-api.service    # systemd service unit
 │   └── install.sh              # API install/setup script
 ├── assets/
-│   └── *.png                   # Static images
+│   ├── images/*.png            # Static images
+│   └── db/*.csv                # Database data
 ├── src/
 │   └── jrhyaku-displayer       # C-side logic (SPI, GPIO, OLED etc.)
 └── misc/
@@ -112,18 +113,20 @@ Hence, the `tools/python/data-processing.ipynb` was created to help ratify this.
 
 If you haven't already, run the `data-processing.ipynb` with your chosen SVG from `assets/Vemaps/`, or just use the default already in the repo.
 
-Once all assetse have been obtained, do the following:
+Once all assets have been obtained, do the following:
 
 ```bash
 # On the Pi Zero 2W
 mkdir -p ~/Desktop/jr-hyaku
 mkdir -p ~/Desktop/jr-hyaku/assets
+mkdir -p ~/Desktop/jr-hyaku/assets/{db,images}
 ```
 
 ```bash
 # On the remote computer, in jr-hyaku -- this may take a while...
 sudo apt install -y sshpass
-sshpass -p "<pi-pw>" scp -v tools/python/data/images/*.png <pi-username>@<pi-ip>:Desktop/jr-hyaku/assets
+sshpass -p "<pi-pw>" scp -v tools/python/data/db/*.csv tools/python/db-setup.py <pi-username>@<pi-ip>:Desktop/jr-hyaku/assets/db
+sshpass -p "<pi-pw>" scp -v tools/python/data/images/bins/*.bin <pi-username>@<pi-ip>:Desktop/jr-hyaku/assets/images
 ```
 
 #### Database Setup
@@ -214,6 +217,17 @@ CREATE TABLE stations (
 );
 ```
 
+And, we can insert the data!
+
+```bash
+cd ~/Desktop/jr-hyaku/assets/db
+python3 -m venv .venv
+source .venv/bin/activate
+pip install psycopg[binary]
+python3 db-setup.py
+deactivate
+```
+
 #### API Setup & Installation
 
 The `jr-hyaku-api.service` is used to ensure the HTTP API is always active, from the Pi's boot sequence.
@@ -238,9 +252,10 @@ sshpass -p "<pi-pw>" scp -v api/api.py api/db.py api/display.py api/install.sh a
 # On the Pi Zero 2W
 cd ~/Desktop/jr-hyaku/api
 chmod +x ./install.sh
-source .venv/bin/active
+source .venv/bin/activate
 pip install -r requirements.txt
 sudo ./install.sh /opt/api ~/Desktop/jr-hyaku/api/.venv/
+deactivate
 ```
 
 #### Displayer Setup & Installation

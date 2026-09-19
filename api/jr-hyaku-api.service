@@ -1,7 +1,7 @@
 [Unit]
 Description=JR Hyaku HTTP API
-After=network.target postgresql.service jr-hyaku-displayer.service
-Wants=postgresql.service jr-hyaku-displayer.service
+After=network.target postgresql.service
+Wants=postgresql.service
 
 [Service]
 Type=simple

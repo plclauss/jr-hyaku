@@ -105,11 +105,11 @@ bool App::jsonReadImageData(const std::string& line) {
   auto buffer = std::make_unique<uint8_t[]>(imgSz);
 
   const std::string home = getHomeDir();
-  const std::string filepath = home + "/Desktop/jr-hyaku/assets/" + line + ".bin";
+  const std::string filepath = home + "/Desktop/jr-hyaku/assets/images/" + line + ".bin";
   std::ifstream bin(filepath, std::ios::binary);
   if (!bin.is_open()) {
 #ifdef DEBUG
-    LOG_DBG("%s: Failed to open line=%s (path=%s)", __func__, line, filepath);
+    LOG_DBG("%s: Failed to open line=%s (path=%s)", __func__, line.c_str(), filepath.c_str());
 #endif
     return false;
   }
@@ -172,7 +172,7 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
     // Draw caption to GDDRAM.
     std::stringstream pctAsString;
     pctAsString << std::fixed << std::setprecision(2) << completionPct;
-    const std::string caption = line + "\n" + pctAsString.str();
+    const std::string caption = pctAsString.str();
     const char *captionCStr = caption.c_str();
 
     static const auto font_ = &Inconsolata_SemiCondensed_Bold4pt7b;

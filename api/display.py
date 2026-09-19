@@ -10,5 +10,5 @@ def send_display_command(payload: dict, timeout: float = 0.5) -> None:
             sock.settimeout(timeout)
             sock.connect("/run/jr-hyaku/jr-hyaku.sock")
             sock.sendall(header + body)
-    except (ConnectionError, socket.timeout, FileNotFoundError):
-        pass
+    except (ConnectionError, socket.timeout, FileNotFoundError) as e:
+        print(f"Display cmd failed (check jr-hyaku-displayer.service): {e}")

@@ -7,7 +7,7 @@ app = FastAPI()
 
 
 class Line(BaseModel):
-    id: int
+    pk: int
     line_cd: int
     line_name: str
     route_color: str | None
@@ -29,7 +29,7 @@ class LineUpdate(BaseModel):
 
 
 class Station(BaseModel):
-    id: int
+    pk: int
     station_cd: int
     station_name: str
     lon: float
@@ -68,7 +68,7 @@ async def get_line(line_cd: int):
     if line is None:
         raise HTTPException(status_code=404, detail=f"line_cd={line_cd} not found")
     
-    send_display_command({
+    display.send_display_command({
         "cmd": "show_line",
         "line_name": line["line_name"],
         "completion_pct": line["completion_pct"]

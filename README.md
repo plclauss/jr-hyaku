@@ -7,12 +7,15 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
 - [Installation](#installation)
     - [Overview](#overview)
     - [Dependency Installation](#dependency-installation)
+        - [libgpiod-2.2](#libgpiod)
+        - [nlohmann/json](#nlohmannjson)
     - [Asset Installation](#asset-installation)
     - [Database Setup](#database-setup)
     - [API Setup & Installation](#api-setup--installation)
     - [Displayer Setup & Installation](#displayer-setup--installation)
 - [Resources](#resources)
     - [Vemaps](#vemaps)
+    - [The Noun Project](#the-noun-project)
     - [Geographic Data](#geographic-data)
 
 ### Inspiration
@@ -303,6 +306,16 @@ Enumerated below is a series of resources used to help realize this project.
 I used [Vemaps](https://vemaps.com/) to source the SVGs of Japan, but they offer maps of over 1200 entities.
 
 High quality stuff!
+
+#### The Noun Project
+
+[The Noun Project](https://thenounproject.com/) is a website for artists to publish free icons and stock photos.
+
+I used [The Noun Project](https://thenounproject.com/) to source the SVGs of the IDLE screen; essentially just splash art while there are no active GET requests.
+
+Thus far, I've downloaded SVGs from the following artists (visible under the `assets/The Noun Project/` directory!):
+- [Simon Child](https://thenounproject.com/creator/Simon%20Child/) (or, [access their website](http://www.simonchild.work/) directly!)
+- [Hey Rabbit](https://thenounproject.com/creator/heyrabbit/) (or, [access their website](http://www.behance.net/heyrabbit) directly!)
 
 #### Geographic Data
 

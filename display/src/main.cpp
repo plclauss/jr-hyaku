@@ -2,6 +2,7 @@
 #include <csignal>
 #include <cstdint>
 #include <thread>
+#include <ctime>
 
 #include "app/app.hpp"
 #include "app/ipc/server.hpp"
@@ -30,6 +31,9 @@ int32_t main(void) {
   /* Initialize all resources. */
   // Custom SIGTERM handler -- Performs graceful shutdown.
   std::signal(SIGTERM, sigtermHandler);
+
+  // RNG
+  srand(static_cast<unsigned>(time(nullptr)));
 
   // OLED
   if (!oledInit()) {

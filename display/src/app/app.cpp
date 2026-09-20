@@ -284,6 +284,8 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
 bool App::revertDisplayToIDLE() {
   /* Helper vars. */
   const std::string filename = "IDLE_" + std::to_string(rand() % 2);
+  static const std::string caption = "jr-hyaku\nby Paul Clauss";
+  static const char *captionCStr = caption.c_str();
 
   /* Display relevant information. */
   {
@@ -302,6 +304,38 @@ bool App::revertDisplayToIDLE() {
     if (!oledDrawImage(this->imageParams_)) {
 #ifdef DEBUG
       LOG_DBG("%s: Failed to draw PNG to GDDRAM", __func__);
+#endif
+      return false;
+    }
+
+    static const auto font_ = &Inconsolata_SemiCondensed_Bold4pt7b;
+    Coordinate captionBbox =
+      oledCalcTextBounds(captionCStr, strlen(captionCStr), font_, NULL);
+    if (oledCoordinateIsInvalid(captionBbox)) {
+#ifdef DEBUG
+      LOG_DBG(
+        "%s: Caption bbox invalid ({%zu, %zu})",
+        __func__,
+        captionBbox.x,
+        captionBbox.y
+      );
+#endif
+      return false;
+    }
+
+    const TextParameters tp = {
+      .font = SEMI_CONDENSED_4PTBOLD,
+      .color = WHITE,
+      .text = captionCStr,
+      .x = 0,
+      .y1 = 0,
+      .y2 = ++captionBbox.y,
+      .center = true,
+    };
+
+    if (!oledDrawString(tp)) {
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to draw caption to GDDRAM", __func__);
 #endif
       return false;
     }

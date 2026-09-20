@@ -40,7 +40,7 @@ def convertImage(filename: str) -> bool:
             rgb565_image += struct.pack(">H", rgb565)
     
     filename_components = os.path.splitext(filename)
-    converted_filename = filename_components[0] + f'-RGB565.bin'
+    converted_filename = filename_components[0] + '.bin'
     with open(converted_filename, "wb") as f:
         f.write(rgb565_image)
 

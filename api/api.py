@@ -1,13 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
-import db
+import db, geo, display
 
 app = FastAPI()
 
 
+__GEO2SVG_TRANSFORM = geo.calc_transformation_matrix()
+
+
 class Line(BaseModel):
-    id: int
+    pk: int
     line_cd: int
     line_name: str
     route_color: str | None
@@ -29,7 +32,7 @@ class LineUpdate(BaseModel):
 
 
 class Station(BaseModel):
-    id: int
+    pk: int
     station_cd: int
     station_name: str
     lon: float
@@ -52,6 +55,11 @@ class StationUpdate(BaseModel):
     visited_at: datetime | None = None
 
 
+@app.get("/status")
+async def get_status():
+    return { "status": "API active!" }
+
+
 @app.get("/lines", response_model=list[Line])
 async def get_lines():
     return db.fetch_lines()
@@ -62,6 +70,29 @@ async def get_line(line_cd: int):
     line = db.fetch_line(line_cd)
     if line is None:
         raise HTTPException(status_code=404, detail=f"line_cd={line_cd} not found")
+
+    bbox = tuple(float(v) for v in line["line_bbox"].split(","))
+
+    station_info = []
+    stations = db.fetch_stations_on_line(line_cd)
+    if line["line_bbox"] is not None and stations:
+        for s in stations:
+            lon, lat = s["lon"], s["lat"]
+            svg_x, svg_y = geo.geo_to_svg(lon, lat, __GEO2SVG_TRANSFORM)
+            px, py = geo.svg_to_png_pixel(svg_x, svg_y, bbox)
+            station_info.append({
+                "station_cd": s["station_cd"],
+                "px": round(px),
+                "py": round(py),
+            })
+    
+    display.send_display_command({
+        "cmd": "show_line",
+        "line_name": line["line_name"],
+        "completion_pct": line["completion_pct"],
+        "stations": station_info
+    })
+
     return line
 
 

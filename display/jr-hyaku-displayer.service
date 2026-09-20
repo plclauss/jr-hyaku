@@ -1,0 +1,21 @@
+[Unit]
+Description=JR Hyaku Displayer
+After=network.target
+
+[Service]
+Type=simple
+User=<@@@>
+RuntimeDirectory=jr-hyaku
+RuntimeDirectoryMode=0750
+WorkingDirectory=/home/<@@@>/Desktop/jr-hyaku/src
+ExecStart=/home/<@@@>/Desktop/jr-hyaku/src/jrhyaku-displayer
+
+Restart=always
+RestartSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jr-hyaku-displayer
+
+[Install]
+WantedBy=multi-user.target

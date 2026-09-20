@@ -44,9 +44,16 @@ fn collect_args() -> Result<UserInput, String> {
     if width <= 0 { return Err(format!("Width must be positive.")); }
     if height <= 0 { return Err(format!("Height must be positive.")); }
 
-    // Extract bbox if specified.
-    let bbox = if args.len() >= 4 {
-        let parts: Vec<&str> = args[3].split(',').collect();
+    // Extract bbox and/or out_fp if specified.
+    let (bbox_arg, out_fp) = match args.len() {
+        4 if args[3].contains(',') => (Some(&args[3]), None),
+        4 => (None, Some(args[3].clone())),
+        5 => (Some(&args[3]), Some(args[4].clone())),
+        _ => (None, None),
+    };
+
+    let bbox = if let Some(bbox_arg) = bbox_arg {
+        let parts: Vec<&str> = bbox_arg.split(',').collect();
         if parts.len() != 4 {
             return Err(format!("<crop> must be min_x,min_y,max_x,max_y"));
         }
@@ -57,13 +64,6 @@ fn collect_args() -> Result<UserInput, String> {
         let vals = vals.map_err(|e| format!("Invalid crop: {}", e))?;
 
         Some((vals[0], vals[1], vals[2], vals[3]))
-    } else {
-        None
-    };
-
-    // Extract output filepath if specified.
-    let out_fp = if args.len() == 5 {
-        Some(args[4].clone())
     } else {
         None
     };

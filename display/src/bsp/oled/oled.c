@@ -737,26 +737,26 @@ bool oledDrawString(TextParameters textParams) {
  */
 bool oledDrawImage(ImageParameters imageParams) {
   // Input Validation
-  if (!imageParams.image) {
-    return false;
-  } else if (imageParams.x >= SSD1351_DISP_WIDTH ||
-             imageParams.y >= SSD1351_DISP_HEIGHT) {
-    return false;
-  }
-
+  if (!imageParams.image) return false;
+  if (imageParams.x >= SSD1351_DISP_WIDTH) return false;
+  if (imageParams.y >= SSD1351_DISP_HEIGHT) return false;
+  
   // Draw the image to the buffer.
-  const uint32_t x2 =
-      MIN_VALUE(imageParams.x + imageParams.width, SSD1351_DISP_WIDTH);
-  const uint32_t y2 =
-      MIN_VALUE(imageParams.y + imageParams.height, SSD1351_DISP_HEIGHT);
+  if (imageParams.x < 0) imageParams.x = 0;
+  if (imageParams.y < 0) imageParams.y = 0;
+
+  const uint32_t x2 = MIN_VALUE(imageParams.x + imageParams.width, SSD1351_DISP_WIDTH);
+  const uint32_t y2 = MIN_VALUE(imageParams.y + imageParams.height, SSD1351_DISP_HEIGHT);
 
   for (uint32_t dispY = imageParams.y; dispY < y2; dispY++) {
     const uint32_t srcRow = dispY - imageParams.y;
     for (uint32_t dispX = imageParams.x; dispX < x2; dispX++) {
       const uint32_t srcCol = dispX - imageParams.x;
       const uint32_t srcByteIdx = (srcRow * imageParams.width + srcCol) * 2;
-      const uint16_t pixel = (((uint16_t)imageParams.image[srcByteIdx] << 8) |
-                              (imageParams.image[srcByteIdx + 1]));
+      const uint16_t pixel = (
+        ((uint16_t)imageParams.image[srcByteIdx] << 8) |
+        (imageParams.image[srcByteIdx + 1])
+      );
 
       uint16_t *dest = &dispBuffer[SSD1351_ACCESS_PIXEL(dispX, dispY)];
       ((uint8_t *)dest)[0] = (pixel >> 8) & 0xFF;

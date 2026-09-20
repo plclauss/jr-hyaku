@@ -1,6 +1,7 @@
 #include "app/app.hpp"
 
 #include <chrono>
+#include <cstdlib>
 #include <fstream>
 #include <filesystem>
 #include <sstream>
@@ -14,6 +15,12 @@
  * @brief Loops indefinitely parsing / responding to JSON commands from API.
  */
 void App::run() {
+  /* Display IDLE screen. */
+  if (!this->revertDisplayToIDLE()) {
+    LOG_WRN("%s: Failed to display IDLE screen on boot; continuing", __func__);
+  }
+
+  /* Thread jobs. */
   this->running_.store(true);
   while (this->running_.load()) {
     /* Check for valid frames. */
@@ -33,11 +40,10 @@ void App::run() {
       /* Hold on this screen for a few seconds, then revert. */
       std::this_thread::sleep_for(std::chrono::seconds(10));
 
-      /* TODO: Revert to IDLE screen. */
-      if (!oledClearScreen() || !oledUpdateDisplay()) {
-#ifdef DEBUG
-        LOG_DBG("%s: Failed to revert to IDLE screen; continuing", __func__);
-#endif
+      /* Revert to IDLE screen. */
+      if (!this->revertDisplayToIDLE()) {
+        LOG_WRN("%s: Failed to revert to IDLE screen; continuing", __func__);
+        // Result of GET still displayed; better than clearing.
       }
     } else {
       LOG_WRN("%s: Failed to handle JSON command", __func__);
@@ -115,11 +121,11 @@ std::string App::getHomeDir() {
 
 /**
  * @brief Reads an image's .bin file into memory for displaying.
- * @param line The name of the line to display; all files follow the same
+ * @param file The name of the file to display; all files follow the same
  * standard, using the name as a unique identifier.
  * @return True, if the file was read into memory; false, otherwise.
  */
-bool App::jsonReadImageData(const std::string& line) {
+bool App::jsonReadImageData(const std::string& file) {
   /* Helper vars. */
   static const int32_t __WIDTH = SSD1351_DISP_WIDTH;
   static const int32_t __HEIGHT = SSD1351_DISP_HEIGHT;
@@ -137,11 +143,11 @@ bool App::jsonReadImageData(const std::string& line) {
   auto buffer = std::make_unique<uint8_t[]>(imgSz);
 
   const std::string home = getHomeDir();
-  const std::string filepath = home + "/Desktop/jr-hyaku/assets/images/" + line + ".bin";
+  const std::string filepath = home + "/Desktop/jr-hyaku/assets/images/" + file + ".bin";
   std::ifstream bin(filepath, std::ios::binary);
   if (!bin.is_open()) {
 #ifdef DEBUG
-    LOG_DBG("%s: Failed to open line=%s (path=%s)", __func__, line.c_str(), filepath.c_str());
+    LOG_DBG("%s: Failed to open file=%s (path=%s)", __func__, file.c_str(), filepath.c_str());
 #endif
     return false;
   }
@@ -267,4 +273,47 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
   }
 
   return true;
+}
+
+/**
+ * @brief Reverts the OLED to an IDLE screen (splash art), following a GET.
+ * @details Currently, there are only two IDLE files, and the file displayed
+ * is chosen via an RNG.
+ * @return True, if the IDLE art was drawn to the OLED; false, otherwise.
+ */
+bool App::revertDisplayToIDLE() {
+  /* Helper vars. */
+  const std::string filename = "IDLE_" + std::to_string(rand() % 2);
+
+  /* Display relevant information. */
+  {
+    // Read image data from assets/.
+    if (!this->jsonReadImageData(filename)) return false;
+
+    // Clear previous GDDRAM.
+    if (!oledClearScreen()) {
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to clear previous GDDRAM buffer", __func__);
+#endif
+      return false;
+    }
+
+    // Draw image to GDDRAM.
+    if (!oledDrawImage(this->imageParams_)) {
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to draw PNG to GDDRAM", __func__);
+#endif
+      return false;
+    }
+
+    // Update OLED w/ content of GDDRAM.
+    if (!oledUpdateDisplay()) {
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to update display w/ IDLE", __func__);
+#endif
+      return false;
+    }
+  }
+
+  return oledUpdateDisplay();
 }

@@ -35,6 +35,7 @@ class App {
   std::string getHomeDir();
   bool jsonReadImageData(const std::string& line);
   bool jsonHandleCommand(const nlohmann::json& json);
+  bool revertDisplayToIDLE();
 };
 
 #endif  // __APP_HPP__

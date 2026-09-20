@@ -65,8 +65,8 @@ def svg_to_png_pixel(x, y, bbox, out_w=128, out_h=128):
 
 
 def calc_line_bounding_box(df, transform):
-    PADDING_FRACTION = 0.05     # % of the bbox's own width/height; const padding could be used, too
-    MIN_BOX_SIZE = 10.0         # guards against small boxes
+    PADDING_FRACTION = 0.25     # % of the bbox's own width/height; const padding could be used, too
+    MIN_BOX_SIZE = 32.0         # guards against small boxes; ~25% of the OLED's dimensions
 
     northernmost_sta = df.loc[df['lat'].idxmax()]
     southernmost_sta = df.loc[df['lat'].idxmin()]

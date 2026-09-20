@@ -34,6 +34,11 @@ void App::run() {
       std::this_thread::sleep_for(std::chrono::seconds(10));
 
       /* TODO: Revert to IDLE screen. */
+      if (!oledClearScreen() || !oledUpdateDisplay()) {
+#ifdef DEBUG
+        LOG_DBG("%s: Failed to revert to IDLE screen; continuing", __func__);
+#endif
+      }
     } else {
       LOG_WRN("%s: Failed to handle JSON command", __func__);
     }

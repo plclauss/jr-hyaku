@@ -211,7 +211,7 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
     // Draw caption to GDDRAM.
     std::stringstream pctAsString;
     pctAsString << std::fixed << std::setprecision(2) << completionPct;
-    const std::string caption = pctAsString.str();
+    const std::string caption = pctAsString.str() + "%";
     const char *captionCStr = caption.c_str();
 
     static const auto font_ = &Inconsolata_SemiCondensed_Bold4pt7b;
@@ -269,6 +269,13 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
       LOG_DBG("%s: Failed to update display w/ line data", __func__);
 #endif
       return false;
+    }
+
+    // Update contrast to maximum.
+    if (!oledSetMasterContrast(0xFF)) {
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to update contrast to maximum; ignoring", __func__);
+#endif
     }
   }
 
@@ -347,7 +354,14 @@ bool App::revertDisplayToIDLE() {
 #endif
       return false;
     }
+
+    // Update contrast to minimum.
+    if (!oledSetMasterContrast(0x00)) {
+#ifdef DEBUG
+      LOG_DBG("%s: Failed to update contrast to minimum; ignoring", __func__);
+#endif
+    }
   }
 
-  return oledUpdateDisplay();
+  return true;
 }

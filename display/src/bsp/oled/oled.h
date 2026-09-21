@@ -91,6 +91,8 @@ bool oledUpdateDisplay(void);
  */
 bool oledCoordinateIsInvalid(const Coordinate coord);
 
+bool oledSetMasterContrast(uint8_t contrast);
+
 #ifdef __cplusplus
 }
 #endif

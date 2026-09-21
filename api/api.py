@@ -71,12 +71,10 @@ async def get_line(line_cd: int):
     if line is None:
         raise HTTPException(status_code=404, detail=f"line_cd={line_cd} not found")
 
-    bbox = tuple(float(v) for v in line["line_bbox"].split(","))
-
     station_info = []
-    stations = db.fetch_stations_on_line(line_cd)
-    if line["line_bbox"] is not None and stations:
-        for s in stations:
+    if line["line_bbox"] is not None:
+        bbox = tuple(float(v) for v in line["line_bbox"].split(","))
+        for s in db.fetch_stations_on_line(line_cd):
             lon, lat = s["lon"], s["lat"]
             svg_x, svg_y = geo.geo_to_svg(lon, lat, __GEO2SVG_TRANSFORM)
             px, py = geo.svg_to_png_pixel(svg_x, svg_y, bbox)
@@ -84,11 +82,13 @@ async def get_line(line_cd: int):
                 "station_cd": s["station_cd"],
                 "px": round(px),
                 "py": round(py),
+                "visited_at": s["visited_at"].isoformat() if s["visited_at"] else None,
             })
     
     display.send_display_command({
         "cmd": "show_line",
         "line_name": line["line_name"],
+        "line_color": line["route_color"],
         "completion_pct": line["completion_pct"],
         "stations": station_info
     })

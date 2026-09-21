@@ -1,5 +1,6 @@
 #include "app/app.hpp"
 
+#include <charconv>
 #include <chrono>
 #include <cstdlib>
 #include <fstream>
@@ -72,8 +73,9 @@ bool App::jsonCommandIsValid(const nlohmann::json& json) {
       return false;
     }
 
-    /* Line Name + Completion Percentage */
+    /* Line Name + Line Color + Completion Percentage */
     std::string lineName = json.at("line_name").get<std::string>();
+    std::string lineColor = json.at("line_color").get<std::string>();
     double completionPct = json.at("completion_pct").get<double>();
 
     /* Stations list w/ station_cd, px, and py values. */
@@ -173,6 +175,35 @@ bool App::jsonReadImageData(const std::string& file) {
   return true;
 }
 
+ /**
+ * @brief Validates line_color from a JSON command and converts it to RGB565.
+ * @param lineColor String in "#RRGGBB" format (24-bit).
+ * @return The corresponding RGB565 color, or WHITE if the string is malformed.
+ */
+uint16_t App::jsonExtractLineColor(const std::string& lineColor) {
+  /* Must be "#RRGGBB". */
+  if (lineColor.length() != 7 || lineColor.front() != '#') return WHITE;
+
+  /* Parse hex digits. */
+  const char* first = lineColor.data() + 1;
+  const char* last = lineColor.data() + lineColor.size();
+
+  uint32_t rgb = 0;
+  auto [ptr, ec] = std::from_chars(first, last, rgb, 16);
+  if (ec != std::errc{} || ptr != last) return WHITE;
+
+  /* Convert RGB888 -> RGB565. */;
+  /* Byte-order swap required. */
+  const uint8_t r = (rgb >> 16) & 0xFF;
+  const uint8_t g = (rgb >> 8)  & 0xFF;
+  const uint8_t b =  rgb        & 0xFF;
+
+  const uint16_t rgb565 = static_cast<uint16_t>(
+    ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+  );
+  return static_cast<uint16_t>((rgb565 >> 8) | (rgb565 << 8));
+}
+
 /**
  * @brief Handles a JSON command from the HTTP API.
  * @details Currently, there's only one command from the API -- "show_line".
@@ -184,6 +215,8 @@ bool App::jsonReadImageData(const std::string& file) {
 bool App::jsonHandleCommand(const nlohmann::json& json) {
   /* Extract relevant display-able information. */
   const std::string line = json.at("line_name").get<std::string>();
+  const std::string lineColorStr = json.at("line_color").get<std::string>();
+  const uint16_t lineColor = this->jsonExtractLineColor(lineColorStr);
   const double completionPct = json.at("completion_pct").get<double>();
   const nlohmann::json& stations = json.at("stations");
 
@@ -232,7 +265,7 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
     const int16_t yStart = ((SSD1351_DISP_HEIGHT - 1) - (captionBbox.y + 1));
     const TextParameters tp = {
       .font = SEMI_CONDENSED_4PTBOLD,
-      .color = WHITE,
+      .color = lineColor,
       .text = captionCStr,
       .x = 0,
       .y1 = yStart,
@@ -247,21 +280,32 @@ bool App::jsonHandleCommand(const nlohmann::json& json) {
       return false;
     }
 
-    // Station markers
-    for (const auto& station : stations) {
-      const int32_t px = station.at("px").get<int32_t>();
-      const int32_t py = station.at("py").get<int32_t>();
+    // Station markers (visited stations are placed atop non-visited ones).
+    const char* fn = __func__;
+    const auto isVisited = [](const auto& station) {
+      const auto it = station.find("visited_at");
+      return it != station.end() && it->is_string();
+    };
 
-      if (!oledDrawPoint(px, py, WHITE)) {
-#ifdef DEBUG
-        LOG_DBG(
-          "%s: Failed to draw station marker @ (%d, %d)",
-          __func__, px, py
-        );
-#endif
-        return false;
+    const auto drawStations = [&](const bool visited) -> bool {
+      for (const auto& station : stations) {
+        if (isVisited(station) != visited) continue;
+
+        const int32_t px = station.at("px").get<int32_t>();
+        const int32_t py = station.at("py").get<int32_t>();
+
+        if (!oledDrawPoint(px, py, (visited) ? lineColor : WHITE)) {
+  #ifdef DEBUG
+          LOG_DBG("%s: Failed to draw station marker @ (%d, %d)", fn, px, py);
+  #endif
+          return false;
+        }
       }
-    }
+
+      return true;
+    };
+
+    if (!drawStations(false) || !drawStations(true)) return false;
 
     // Update OLED w/ content of GDDRAM.
     if (!oledUpdateDisplay()) {

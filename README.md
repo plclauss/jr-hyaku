@@ -17,6 +17,7 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
     - [Vemaps](#vemaps)
     - [The Noun Project](#the-noun-project)
     - [Geographic Data](#geographic-data)
+    - [Color Data](#color-data)
 
 ### Inspiration
 
@@ -321,3 +322,15 @@ Thus far, I've downloaded SVGs from the following artists (visible under the `as
 
 This project is intended to work with data from [ekidata.jp](https://ekidata.jp/) data; however, the following are some seriously fantastic alternatives:
 - [Association for Open Data of Public Transportation](https://www.odpt.org/)
+
+#### Color Data
+
+[ekidata.jp](https://ekidata.jp/) provides line colors, but they mention in their FAQ that it's their own scheme, not necessarily matching that of the actual line color. Hence, I had to source the color data from elsewhere.
+
+There wasn't a singular resource out there, but the Wiki / JR websites themselves are a bit of help:
+- [Railway Colors Wiki](https://ja.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E3%81%AE%E9%89%84%E9%81%93%E3%83%A9%E3%82%A4%E3%83%B3%E3%82%AB%E3%83%A9%E3%83%BC%E4%B8%80%E8%A6%A7)
+- [JR East Railway Network](https://www.jreast.co.jp/map/pdf/map_tokyo.pdf)
+
+Often, the resources disagree, so I follow this pattern:
+- If it's easy to grab the color from the company themselves (e.g., with PowerToys' color-picker), then this value will be used.
+- Otherwise, default to the Wiki.

@@ -34,6 +34,7 @@ class App {
   ImageParameters imageParams_{};
   std::string getHomeDir();
   bool jsonReadImageData(const std::string& line);
+  uint16_t jsonExtractLineColor(const std::string& lineColor);
   bool jsonHandleCommand(const nlohmann::json& json);
   bool revertDisplayToIDLE();
 };

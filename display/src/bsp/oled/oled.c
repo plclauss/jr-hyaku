@@ -290,6 +290,11 @@ bool oledInit(void) {
       SSD1351_CMD_SET_REMAP,
       1,
       0x74,  // Swap Color Sequence & Invert COM scan.
+      SSD1351_CMD_ENHANCE_DISPLAY,
+      3,
+      0xA4, // Enhance Display
+      0x00, // Required 0x00
+      0x00, // Required 0x00
       SSD1351_CMD_DISP_ON,
       0,
   };
@@ -386,7 +391,7 @@ bool oledDrawPixel(uint8_t x, uint8_t y, const uint16_t color) {
 }
 
 /**
- * @brief Draws a point (cross, '+'), centered at the (x, y) coordinate.
+ * @brief Draws a point (cross, 'X'), centered at the (x, y) coordinate.
  * 
  * @param x The desired x-coordinate center of the point.
  * 
@@ -406,25 +411,17 @@ bool oledDrawPoint(uint8_t x, uint8_t y, const uint16_t color) {
   if (x >= SSD1351_DISP_WIDTH) x = (SSD1351_DISP_WIDTH - 1);
   if (y >= SSD1351_DISP_HEIGHT) y = (SSD1351_DISP_HEIGHT - 1);
 
-  // Draw the point -- a simple cross ('+'), centered at (x, y).
+  // Draw the point -- a simple cross ('X'), centered at (x, y).
   const bool left = (x > 0);
   const bool right = (x < (SSD1351_DISP_WIDTH - 1));
   const bool up = (y > 0);
   const bool down = (y < (SSD1351_DISP_HEIGHT - 1));
 
   oledDrawPixel(x, y, color);
-  // '+'
-  // if (left)   if (!oledDrawPixel(x - 1, y, color)) return false;
-  // if (right)  if (!oledDrawPixel(x + 1, y, color)) return false;
-  // if (up)     if (!oledDrawPixel(x, y - 1, color)) return false;
-  // if (down)   if (!oledDrawPixel(x, y + 1, color)) return false;
-
-  // 'X'
   if (left && up)    if (!oledDrawPixel(x - 1, y - 1, color)) return false;
   if (right && up)   if (!oledDrawPixel(x + 1, y - 1, color)) return false;
   if (left && down)  if (!oledDrawPixel(x - 1, y + 1, color)) return false;
   if (right && down) if (!oledDrawPixel(x + 1, y + 1, color)) return false;
-
 
   return true;
 }
@@ -799,4 +796,22 @@ bool oledUpdateDisplay(void) {
  */
 bool oledCoordinateIsInvalid(const Coordinate coord) {
   return (coord.x == INVALID_COORDINATE.x || coord.y == INVALID_COORDINATE.y);
+}
+
+/**
+ * @brief Updates the contrast of the display.
+ * @details Default is full-contrast (0b1111).
+ * @param contrast The desired contrast (most-significant nibble is discarded).
+ * @return True, if the contrast was set; false, otherwise.
+ */
+bool oledSetMasterContrast(uint8_t contrast) {
+  // Ensure the display is initialized before drawing to it.
+  if (!oledIsInitialized) return false;
+
+  // Clamp contrast to expected 4-bit value.
+  contrast &= 0x0F;
+
+  // Command-lock already unlocked post-initialization; send command + params.
+  if (!oledSendCommand(SSD1351_CMD_SET_MASTER_CONTRAST)) return false;
+  return oledSendData(&contrast, sizeof(uint8_t));
 }

@@ -6,6 +6,7 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
 - [Inspiration](#inspiration)
 - [Installation](#installation)
     - [Overview](#overview)
+    - [Misc Setup](#misc-setup)
     - [Dependency Installation](#dependency-installation)
         - [libgpiod-2.2](#libgpiod)
         - [nlohmann/json](#nlohmannjson)
@@ -18,6 +19,7 @@ A visualizer / tracker tool for those attempting a 100% of the Japan Rail (JR) t
     - [The Noun Project](#the-noun-project)
     - [Geographic Data](#geographic-data)
     - [Color Data](#color-data)
+- [Examples](#examples)
 
 ### Inspiration
 
@@ -58,6 +60,23 @@ The directory structure is more involved (all paths are relative to `~/Desktop/j
     └── install_dependencies.sh # System-level dependency installer
 ```
 
+#### Misc Setup
+
+The SPI interface of the RPi must also be set-up. This may be done via `raspi-config` (**Interface Options → SPI**).
+
+The default SPI interface is fine, since this is a standalone piece that has few components. The pinout is given below.
+
+| RPi GPIO | Physical Pin | OLED Pin | Function             |
+|----------|--------------|----------|----------------------|
+| GPIO 10  | 19           | MOSI     | SPI data out         |
+| GPIO 9   | 21           | MISO     | SPI data in          |
+| GPIO 11  | 23           | SCK      | SPI clock            |
+| GPIO 8   | 24           | OLEDCS   | Chip select (CE0)    |
+| GPIO 27  | 13           | DC       | Data/command select  |
+| GPIO 17  | 11           | RESET    | Reset                |
+| GND      | 6            | GND      | Ground               |
+| 3V3      | 1            | Vin      | Power (3.3 V)        |
+
 #### Dependency Installation
 
 The following must be installed for cross-compilation:
@@ -86,14 +105,27 @@ Also, don't forget to add this to your `c_cpp_properties.json` file in VS Code t
 
 ##### libgpiod
 
+The GPIO library **must** be installed on both machines.
+
 ```bash
-# On the remote computer.
+# On the remote computer, for cross-compilation.
 wget https://mirrors.edge.kernel.org/pub/software/libs/libgpiod/libgpiod-2.2.tar.xz
 tar -xf libgpiod-2.2.tar.xz
 cd libgpiod-2.2
 ./configure --host=aarch64-linux-gnu --prefix=/usr --enable-tools=no
 make -j$(nproc)
 make install DESTDIR=$HOME/aarch64-sysroot
+```
+
+```bash
+# On the Pi Zero 2W
+wget https://mirrors.edge.kernel.org/pub/software/libs/libgpiod/libgpiod-2.2.tar.xz
+tar -xf libgpiod-2.2.tar.xz
+cd libgpiod-2.2
+./configure --enable-tools=no
+make -j$(nproc)
+sudo make install
+sudo ldconfig
 ```
 
 ##### nlohmann/json
@@ -334,3 +366,10 @@ There wasn't a singular resource out there, but the Wiki / JR websites themselve
 Often, the resources disagree, so I follow this pattern:
 - If it's easy to grab the color from the company themselves (e.g., with PowerToys' color-picker), then this value will be used.
 - Otherwise, default to the Wiki.
+
+### Examples
+
+![Example IDLE screen](docs/idle.jpg)
+![Example progress screen](docs/yamanote.jpg)
+
+*(Note: It's a bit hard to see on the second image, but the station markers are drawn in the color of the line! It was hard to get a photo of the OLED...the frame rate was too fast haha).*
